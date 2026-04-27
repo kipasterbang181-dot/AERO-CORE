@@ -694,12 +694,8 @@
         }
 
         function exportFullDatabase() {
-            const table = document.getElementById("mainTable");
-            const wb = XLSX.utils.table_to_book(table, { 
-                sheet: "G7_Aerospace_Records",
-                raw: true 
-            });
-            XLSX.writeFile(wb, "G7_Full_Database_Export.xlsx");
+            // Guna Flask route untuk Excel yang cantik dan berwarna-warni
+            window.location.href = '/export_excel';
         }
 
         function parseExcelDate(val) {
@@ -906,4 +902,4 @@
         };
     </script>
 </body>
-</html>
+</html>     
