@@ -656,222 +656,181 @@ def export_excel_data():
     if not session.get('admin'):
         return redirect(url_for('login', next=request.path))
     try:
-        from collections import Counter
+        from collections import Counter, defaultdict
+        import xlsxwriter
 
         logs   = RepairLog.query.order_by(RepairLog.id.desc()).all()
         output = io.BytesIO()
+        wb     = xlsxwriter.Workbook(output, {'in_memory': True})
 
         STATUS_COLORS = {
             "SERVICEABLE":                 {"bg": "16A34A", "fg": "FFFFFF"},
             "RETURN UNSERVICEABLE":        {"bg": "DC2626", "fg": "FFFFFF"},
-            "UNDER REPAIR":               {"bg": "D97706", "fg": "FFFFFF"},
-            "OV REPAIR":                  {"bg": "9333EA", "fg": "FFFFFF"},
-            "OV TDI":                     {"bg": "7C3AED", "fg": "FFFFFF"},
-            "WARRANTY REPAIR":            {"bg": "0369A1", "fg": "FFFFFF"},
-            "TDI IN PROGRESS":            {"bg": "0891B2", "fg": "FFFFFF"},
-            "TDI TO REVIEW":              {"bg": "06B6D4", "fg": "1E293B"},
-            "TDI READY TO QUOTE":         {"bg": "67E8F9", "fg": "1E293B"},
-            "READY TO QUOTE":             {"bg": "FBBF24", "fg": "1E293B"},
-            "QUOTE SUBMITTED":            {"bg": "F59E0B", "fg": "FFFFFF"},
-            "READY TO DELIVERED":         {"bg": "10B981", "fg": "FFFFFF"},
-            "READY TO DELIVERED WARRANTY":{"bg": "059669", "fg": "FFFFFF"},
-            "WAITING LO":                 {"bg": "94A3B8", "fg": "FFFFFF"},
-            "AWAITING SPARE":             {"bg": "F97316", "fg": "FFFFFF"},
-            "SPARE READY":                {"bg": "84CC16", "fg": "1E293B"},
-            "ISOLATED":                   {"bg": "64748B", "fg": "FFFFFF"},
-            "RETURN TO AEROTREE":         {"bg": "BE185D", "fg": "FFFFFF"},
+            "UNDER REPAIR":                {"bg": "D97706", "fg": "FFFFFF"},
+            "OV REPAIR":                   {"bg": "9333EA", "fg": "FFFFFF"},
+            "OV TDI":                      {"bg": "7C3AED", "fg": "FFFFFF"},
+            "WARRANTY REPAIR":             {"bg": "0369A1", "fg": "FFFFFF"},
+            "TDI IN PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},
+            "TDI TO REVIEW":               {"bg": "06B6D4", "fg": "1E293B"},
+            "TDI READY TO QUOTE":          {"bg": "67E8F9", "fg": "1E293B"},
+            "READY TO QUOTE":              {"bg": "FBBF24", "fg": "1E293B"},
+            "QUOTE SUBMITTED":             {"bg": "F59E0B", "fg": "FFFFFF"},
+            "READY TO DELIVERED":          {"bg": "10B981", "fg": "FFFFFF"},
+            "READY TO DELIVERED WARRANTY": {"bg": "059669", "fg": "FFFFFF"},
+            "WAITING LO":                  {"bg": "94A3B8", "fg": "FFFFFF"},
+            "AWAITING SPARE":              {"bg": "F97316", "fg": "FFFFFF"},
+            "SPARE READY":                 {"bg": "84CC16", "fg": "1E293B"},
+            "ISOLATED":                    {"bg": "64748B", "fg": "FFFFFF"},
+            "RETURN TO AEROTREE":          {"bg": "BE185D", "fg": "FFFFFF"},
         }
+        YEAR_ACCENTS = [
+            {"hdr_bg": "#1E3A5F", "banner_bg": "#0F2340", "tab": "#3B82F6"},
+            {"hdr_bg": "#3B1F5E", "banner_bg": "#1E0F40", "tab": "#8B5CF6"},
+            {"hdr_bg": "#1A4731", "banner_bg": "#0A2818", "tab": "#10B981"},
+            {"hdr_bg": "#78350F", "banner_bg": "#451A03", "tab": "#F59E0B"},
+            {"hdr_bg": "#7F1D1D", "banner_bg": "#450A0A", "tab": "#EF4444"},
+            {"hdr_bg": "#164E63", "banner_bg": "#083344", "tab": "#06B6D4"},
+        ]
+        COLS  = ["ID","DRN","EQUIPMENT","P/N","S/N","DEFECT / REMARKS","DATE IN","DATE OUT","STATUS","PIC / JTP"]
+        COL_W = [5, 12, 30, 18, 18, 42, 13, 13, 24, 22]
 
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            wb = writer.book
-            def _fmt(p): return wb.add_format(p)
+        def _f(p): return wb.add_format(p)
 
-            fmt_title   = _fmt({'bold':True,'font_size':18,'font_color':'#FFFFFF','bg_color':'#0F172A','align':'left','valign':'vcenter','font_name':'Arial'})
-            fmt_sub     = _fmt({'font_size':9,'font_color':'#94A3B8','bg_color':'#0F172A','align':'left','valign':'vcenter','font_name':'Arial'})
-            fmt_blank   = _fmt({'bg_color':'#0F172A'})
-            fmt_hdr     = _fmt({'bold':True,'font_size':9,'font_color':'#FFFFFF','bg_color':'#1E293B','align':'center','valign':'vcenter','border':1,'border_color':'#334155','text_wrap':True,'font_name':'Arial'})
-            fmt_id      = _fmt({'bold':True,'font_size':9,'align':'center','valign':'vcenter','bg_color':'#1E293B','font_color':'#94A3B8','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_odd     = _fmt({'font_size':9,'align':'left','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial','text_wrap':True})
-            fmt_even    = _fmt({'font_size':9,'align':'left','valign':'vcenter','bg_color':'#FFFFFF','border':1,'border_color':'#E2E8F0','font_name':'Arial','text_wrap':True})
-            fmt_pn_odd  = _fmt({'font_size':9,'bold':True,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','font_color':'#1D4ED8','border':1,'border_color':'#E2E8F0','font_name':'Courier New'})
-            fmt_pn_even = _fmt({'font_size':9,'bold':True,'align':'center','valign':'vcenter','bg_color':'#FFFFFF','font_color':'#1D4ED8','border':1,'border_color':'#E2E8F0','font_name':'Courier New'})
-            fmt_dt_odd  = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial Narrow'})
-            fmt_dt_even = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#FFFFFF','border':1,'border_color':'#E2E8F0','font_name':'Arial Narrow'})
-            fmt_dash    = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F1F5F9','font_color':'#CBD5E1','border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-            fmt_def_odd = _fmt({'font_size':8,'italic':True,'align':'left','valign':'vcenter','bg_color':'#FFF7ED','font_color':'#9A3412','border':1,'border_color':'#FDBA74','font_name':'Arial','text_wrap':True})
-            fmt_def_even= _fmt({'font_size':8,'italic':True,'align':'left','valign':'vcenter','bg_color':'#FFF7ED','font_color':'#9A3412','border':1,'border_color':'#FDBA74','font_name':'Arial','text_wrap':True})
-            fmt_tot_lbl = _fmt({'bold':True,'font_size':10,'font_color':'#FFFFFF','bg_color':'#0F172A','align':'right','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_tot_val = _fmt({'bold':True,'font_size':10,'font_color':'#FBBF24','bg_color':'#0F172A','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
+        # Global shared formats
+        fmt_title   = _f({"bold":True,"font_size":18,"font_color":"#FFFFFF","bg_color":"#0F172A","align":"left","valign":"vcenter","font_name":"Arial"})
+        fmt_sub     = _f({"font_size":9,"font_color":"#94A3B8","bg_color":"#0F172A","align":"left","valign":"vcenter","font_name":"Arial"})
+        fmt_blank   = _f({"bg_color":"#0F172A"})
+        fmt_hdr     = _f({"bold":True,"font_size":9,"font_color":"#FFFFFF","bg_color":"#1E293B","align":"center","valign":"vcenter","border":1,"border_color":"#334155","text_wrap":True,"font_name":"Arial"})
+        fmt_id      = _f({"bold":True,"font_size":9,"align":"center","valign":"vcenter","bg_color":"#1E293B","font_color":"#94A3B8","border":1,"border_color":"#334155","font_name":"Arial"})
+        fmt_odd     = _f({"font_size":9,"align":"left","valign":"vcenter","bg_color":"#F8FAFC","border":1,"border_color":"#E2E8F0","font_name":"Arial","text_wrap":True})
+        fmt_even    = _f({"font_size":9,"align":"left","valign":"vcenter","bg_color":"#FFFFFF","border":1,"border_color":"#E2E8F0","font_name":"Arial","text_wrap":True})
+        fmt_pn_odd  = _f({"font_size":9,"bold":True,"align":"center","valign":"vcenter","bg_color":"#F8FAFC","font_color":"#1D4ED8","border":1,"border_color":"#E2E8F0","font_name":"Courier New"})
+        fmt_pn_even = _f({"font_size":9,"bold":True,"align":"center","valign":"vcenter","bg_color":"#FFFFFF","font_color":"#1D4ED8","border":1,"border_color":"#E2E8F0","font_name":"Courier New"})
+        fmt_dt_odd  = _f({"font_size":9,"align":"center","valign":"vcenter","bg_color":"#F8FAFC","border":1,"border_color":"#E2E8F0","font_name":"Arial Narrow"})
+        fmt_dt_even = _f({"font_size":9,"align":"center","valign":"vcenter","bg_color":"#FFFFFF","border":1,"border_color":"#E2E8F0","font_name":"Arial Narrow"})
+        fmt_dash    = _f({"font_size":9,"align":"center","valign":"vcenter","bg_color":"#F1F5F9","font_color":"#CBD5E1","border":1,"border_color":"#E2E8F0","font_name":"Arial"})
+        fmt_def_odd = _f({"font_size":8,"italic":True,"align":"left","valign":"vcenter","bg_color":"#FFF7ED","font_color":"#9A3412","border":1,"border_color":"#FDBA74","font_name":"Arial","text_wrap":True})
+        fmt_def_even= _f({"font_size":8,"italic":True,"align":"left","valign":"vcenter","bg_color":"#FFF7ED","font_color":"#9A3412","border":1,"border_color":"#FDBA74","font_name":"Arial","text_wrap":True})
+        fmt_tot_lbl = _f({"bold":True,"font_size":10,"font_color":"#FFFFFF","bg_color":"#0F172A","align":"right","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial"})
+        fmt_tot_val = _f({"bold":True,"font_size":10,"font_color":"#FBBF24","bg_color":"#0F172A","align":"center","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial"})
 
-            # ── Sheet 1: Repair Log ──────────────────────────────────
-            ws = wb.add_worksheet('Repair Log')
-            writer.sheets['Repair Log'] = ws
-            ws.set_zoom(90)
-            ws.freeze_panes(4, 0)
+        def write_log_sheet(ws, sheet_logs, banner, subtitle, ft, fs, fb, fh, fi, ftl, ftv):
+            ws.set_zoom(90); ws.freeze_panes(4, 0)
             ws.set_row(0, 34); ws.set_row(1, 18); ws.set_row(2, 5); ws.set_row(3, 28)
-
-            COLS  = ["ID","DRN","EQUIPMENT","P/N","S/N","DEFECT / REMARKS","DATE IN","DATE OUT","STATUS","PIC / JTP"]
-            COL_W = [5, 12, 30, 18, 18, 42, 13, 13, 24, 22]
             for i, w in enumerate(COL_W): ws.set_column(i, i, w)
-
-            ws.merge_range('A1:J1', '  G7 AEROSPACE  -  MAINTENANCE REPAIR LOG', fmt_title)
-            ws.merge_range('A2:J2', f'  Generated: {datetime.now().strftime("%d %B %Y  |  %H:%M")}   |   Total Records: {len(logs)}', fmt_sub)
-            ws.merge_range('A3:J3', '', fmt_blank)
-            for ci, col in enumerate(COLS): ws.write(3, ci, col, fmt_hdr)
-
-            for ri, l in enumerate(logs):
-                row = ri + 4
-                ws.set_row(row, 20)
-                odd = ri % 2 == 0
-                ws.write(row, 0, l.id,                         fmt_id)
-                ws.write(row, 1, l.drn or '-',                 fmt_odd  if odd else fmt_even)
-                ws.write(row, 2, l.peralatan or '-',           fmt_odd  if odd else fmt_even)
-                ws.write(row, 3, l.pn or '-',                  fmt_pn_odd if odd else fmt_pn_even)
-                ws.write(row, 4, l.sn or '-',                  fmt_pn_odd if odd else fmt_pn_even)
-                ws.write(row, 5, l.defect or 'N/A',            fmt_def_odd if odd else fmt_def_even)
-                ws.write(row, 6, str(l.date_in) if l.date_in else '-',
-                                                               fmt_dt_odd if odd else fmt_dt_even)
+            ws.merge_range("A1:J1", banner, ft)
+            ws.merge_range("A2:J2", subtitle, fs)
+            ws.merge_range("A3:J3", "", fb)
+            for ci, col in enumerate(COLS): ws.write(3, ci, col, fh)
+            for ri, l in enumerate(sheet_logs):
+                row = ri + 4; ws.set_row(row, 20); odd = ri % 2 == 0
+                ws.write(row, 0, l.id,                        fi)
+                ws.write(row, 1, l.drn or "-",                fmt_odd if odd else fmt_even)
+                ws.write(row, 2, l.peralatan or "-",          fmt_odd if odd else fmt_even)
+                ws.write(row, 3, l.pn or "-",                 fmt_pn_odd if odd else fmt_pn_even)
+                ws.write(row, 4, l.sn or "-",                 fmt_pn_odd if odd else fmt_pn_even)
+                ws.write(row, 5, l.defect or "N/A",           fmt_def_odd if odd else fmt_def_even)
+                ws.write(row, 6, str(l.date_in) if l.date_in else "-", fmt_dt_odd if odd else fmt_dt_even)
                 dout = str(l.date_out) if l.date_out else None
-                ws.write(row, 7, dout if dout else '-',
-                         (fmt_dt_odd if odd else fmt_dt_even) if dout else fmt_dash)
+                ws.write(row, 7, dout if dout else "-", (fmt_dt_odd if odd else fmt_dt_even) if dout else fmt_dash)
+                status = (l.status_type or "UNKNOWN").upper().strip()
+                sc     = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
+                ws.write(row, 8, status, _f({"bold":True,"font_size":8,"align":"center","valign":"vcenter",
+                                              "bg_color":"#"+sc["bg"],"font_color":"#"+sc["fg"],
+                                              "border":1,"border_color":"#E2E8F0","font_name":"Arial"}))
+                ws.write(row, 9, l.pic or "N/A", fmt_odd if odd else fmt_even)
+            tot = len(sheet_logs) + 4; ws.set_row(tot, 22)
+            ws.merge_range(tot, 0, tot, 8, "TOTAL RECORDS", ftl)
+            ws.write(tot, 9, len(sheet_logs), ftv)
 
-                status = (l.status_type or 'UNKNOWN').upper().strip()
-                sc = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
-                fmt_st = _fmt({'bold':True,'font_size':8,'align':'center','valign':'vcenter',
-                                'bg_color':'#'+sc['bg'],'font_color':'#'+sc['fg'],
-                                'border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-                ws.write(row, 8, status, fmt_st)
-                ws.write(row, 9, l.pic or 'N/A', fmt_odd if odd else fmt_even)
+        now_str = datetime.now().strftime("%d %B %Y  |  %H:%M")
 
-            tot = len(logs) + 4
-            ws.set_row(tot, 22)
-            ws.merge_range(tot, 0, tot, 8, 'TOTAL RECORDS', fmt_tot_lbl)
-            ws.write(tot, 9, len(logs), fmt_tot_val)
+        # ── Sheet 1: ALL RECORDS ─────────────────────────────────
+        ws_all = wb.add_worksheet("ALL RECORDS")
+        write_log_sheet(ws_all, logs,
+            "  G7 AEROSPACE  -  MAINTENANCE REPAIR LOG  (ALL YEARS)",
+            f"  Generated: {now_str}   |   Total Records: {len(logs)}",
+            fmt_title, fmt_sub, fmt_blank, fmt_hdr, fmt_id, fmt_tot_lbl, fmt_tot_val)
 
-            # ── Sheet 2: Status Summary ──────────────────────────────
-            ws2 = wb.add_worksheet('Status Summary')
-            writer.sheets['Status Summary'] = ws2
-            ws2.set_zoom(90)
-            ws2.set_column(0, 0, 30); ws2.set_column(1, 1, 14); ws2.set_column(2, 2, 14)
-            ws2.set_row(0, 36); ws2.set_row(1, 18); ws2.set_row(2, 6); ws2.set_row(3, 24)
+        # ── Sheets per Year ──────────────────────────────────────
+        year_map = defaultdict(list)
+        for l in logs:
+            yr = l.date_in.year if l.date_in else 0
+            year_map[yr].append(l)
 
-            fmt_s_hdr = _fmt({'bold':True,'font_size':9,'font_color':'#FFFFFF','bg_color':'#1E293B','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_s_cnt = _fmt({'bold':True,'font_size':11,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-            fmt_s_pct = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F1F5F9','font_color':'#64748B','border':1,'border_color':'#E2E8F0','font_name':'Arial','num_format':'0.0%'})
-            fmt_s_sub = _fmt({'font_size':9,'font_color':'#94A3B8','bg_color':'#0F172A','font_name':'Arial'})
-            fmt_s_tpct= _fmt({'bold':True,'font_size':10,'font_color':'#FBBF24','bg_color':'#0F172A','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial','num_format':'0.0%'})
+        for yi, year in enumerate(sorted(year_map.keys(), reverse=True)):
+            year_logs = year_map[year]
+            acc = YEAR_ACCENTS[yi % len(YEAR_ACCENTS)]
+            ws_y = wb.add_worksheet(str(year) if year else "Unknown")
+            ws_y.set_tab_color(acc["tab"])
+            write_log_sheet(ws_y, year_logs,
+                f"  G7 AEROSPACE  -  REPAIR LOG  {year}",
+                f"  Generated: {now_str}   |   Records for {year}: {len(year_logs)}",
+                _f({"bold":True,"font_size":18,"font_color":"#FFFFFF","bg_color":acc["banner_bg"],"align":"left","valign":"vcenter","font_name":"Arial"}),
+                _f({"font_size":9,"font_color":"#94A3B8","bg_color":acc["banner_bg"],"align":"left","valign":"vcenter","font_name":"Arial"}),
+                _f({"bg_color":acc["banner_bg"]}),
+                _f({"bold":True,"font_size":9,"font_color":"#FFFFFF","bg_color":acc["hdr_bg"],"align":"center","valign":"vcenter","border":1,"border_color":"#334155","text_wrap":True,"font_name":"Arial"}),
+                _f({"bold":True,"font_size":9,"align":"center","valign":"vcenter","bg_color":acc["hdr_bg"],"font_color":"#94A3B8","border":1,"border_color":"#334155","font_name":"Arial"}),
+                _f({"bold":True,"font_size":10,"font_color":"#FFFFFF","bg_color":acc["banner_bg"],"align":"right","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial"}),
+                _f({"bold":True,"font_size":10,"font_color":"#FBBF24","bg_color":acc["banner_bg"],"align":"center","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial"}),
+            )
 
-            ws2.merge_range('A1:C1', '  STATUS SUMMARY', fmt_title)
-            ws2.merge_range('A2:C2', f'  G7 Aerospace  -  {datetime.now().strftime("%d %B %Y")}', fmt_s_sub)
-            ws2.merge_range('A3:C3', '', fmt_blank)
-            ws2.write(3, 0, 'STATUS', fmt_s_hdr)
-            ws2.write(3, 1, 'COUNT',  fmt_s_hdr)
-            ws2.write(3, 2, '% OF TOTAL', fmt_s_hdr)
+        # ── Sheet: Status Summary ────────────────────────────────
+        ws2 = wb.add_worksheet("Status Summary")
+        ws2.set_zoom(90)
+        ws2.set_column(0, 0, 30); ws2.set_column(1, 1, 14); ws2.set_column(2, 2, 14)
+        ws2.set_row(0, 36); ws2.set_row(1, 18); ws2.set_row(2, 6); ws2.set_row(3, 24)
 
-            sc_map = Counter((l.status_type or 'UNKNOWN').upper().strip() for l in logs)
-            total  = len(logs)
-            for ri, (status, count) in enumerate(sorted(sc_map.items(), key=lambda x: -x[1])):
-                row = ri + 4
-                ws2.set_row(row, 22)
-                sc = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
-                fmt_lbl = _fmt({'bold':True,'font_size':9,'align':'left','valign':'vcenter',
-                                 'bg_color':'#'+sc['bg'],'font_color':'#'+sc['fg'],
-                                 'border':1,'border_color':'#E2E8F0','font_name':'Arial','indent':1})
-                ws2.write(row, 0, status, fmt_lbl)
-                ws2.write(row, 1, count, fmt_s_cnt)
-                ws2.write(row, 2, count / total if total else 0, fmt_s_pct)
+        fmt_s_hdr = _f({"bold":True,"font_size":9,"font_color":"#FFFFFF","bg_color":"#1E293B","align":"center","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial"})
+        fmt_s_cnt = _f({"bold":True,"font_size":11,"align":"center","valign":"vcenter","bg_color":"#F8FAFC","border":1,"border_color":"#E2E8F0","font_name":"Arial"})
+        fmt_s_pct = _f({"font_size":9,"align":"center","valign":"vcenter","bg_color":"#F1F5F9","font_color":"#64748B","border":1,"border_color":"#E2E8F0","font_name":"Arial","num_format":"0.0%"})
+        fmt_s_sub = _f({"font_size":9,"font_color":"#94A3B8","bg_color":"#0F172A","font_name":"Arial"})
+        fmt_s_tpc = _f({"bold":True,"font_size":10,"font_color":"#FBBF24","bg_color":"#0F172A","align":"center","valign":"vcenter","border":1,"border_color":"#334155","font_name":"Arial","num_format":"0.0%"})
 
-            s_row = len(sc_map) + 4
-            ws2.set_row(s_row, 24)
-            ws2.write(s_row, 0, 'GRAND TOTAL', fmt_tot_lbl)
-            ws2.write(s_row, 1, total, fmt_tot_val)
-            ws2.write(s_row, 2, 1.0, fmt_s_tpct)
+        ws2.merge_range("A1:C1", "  STATUS SUMMARY", fmt_title)
+        ws2.merge_range("A2:C2", f"  G7 Aerospace  -  {datetime.now().strftime('%d %B %Y')}", fmt_s_sub)
+        ws2.merge_range("A3:C3", "", fmt_blank)
+        ws2.write(3, 0, "STATUS", fmt_s_hdr)
+        ws2.write(3, 1, "COUNT",  fmt_s_hdr)
+        ws2.write(3, 2, "% OF TOTAL", fmt_s_hdr)
 
-            chart = wb.add_chart({'type': 'pie'})
-            chart.add_series({
-                'name': 'Status Distribution',
-                'categories': [ws2.name, 4, 0, 3 + len(sc_map), 0],
-                'values':     [ws2.name, 4, 1, 3 + len(sc_map), 1],
-            })
-            chart.set_title({'name': 'Repair Status Distribution'})
-            chart.set_style(10)
-            chart.set_size({'width': 420, 'height': 280})
-            ws2.insert_chart(4, 4, chart, {'x_offset': 5, 'y_offset': 5})
+        sc_map = Counter((l.status_type or "UNKNOWN").upper().strip() for l in logs)
+        total  = len(logs)
+        for ri, (status, count) in enumerate(sorted(sc_map.items(), key=lambda x: -x[1])):
+            row = ri + 4; ws2.set_row(row, 22)
+            sc  = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
+            ws2.write(row, 0, status, _f({"bold":True,"font_size":9,"align":"left","valign":"vcenter",
+                                           "bg_color":"#"+sc["bg"],"font_color":"#"+sc["fg"],
+                                           "border":1,"border_color":"#E2E8F0","font_name":"Arial","indent":1}))
+            ws2.write(row, 1, count, fmt_s_cnt)
+            ws2.write(row, 2, count / total if total else 0, fmt_s_pct)
 
-            # ── Helper: write a log sheet ────────────────────────────
-            def _write_log_sheet(wso, sheet_logs, banner, subtitle, ft, fs, fb, fh, fi, ftl, ftv):
-                wso.set_zoom(90); wso.freeze_panes(4, 0)
-                wso.set_row(0, 34); wso.set_row(1, 18); wso.set_row(2, 5); wso.set_row(3, 28)
-                for i, w in enumerate(COL_W): wso.set_column(i, i, w)
-                wso.merge_range('A1:J1', banner, ft)
-                wso.merge_range('A2:J2', subtitle, fs)
-                wso.merge_range('A3:J3', '', fb)
-                for ci, col in enumerate(COLS): wso.write(3, ci, col, fh)
-                for ri, l in enumerate(sheet_logs):
-                    row = ri + 4; wso.set_row(row, 20); odd = ri % 2 == 0
-                    wso.write(row, 0, l.id,                        fi)
-                    wso.write(row, 1, l.drn or '-',                fmt_odd if odd else fmt_even)
-                    wso.write(row, 2, l.peralatan or '-',          fmt_odd if odd else fmt_even)
-                    wso.write(row, 3, l.pn or '-',                 fmt_pn_odd if odd else fmt_pn_even)
-                    wso.write(row, 4, l.sn or '-',                 fmt_pn_odd if odd else fmt_pn_even)
-                    wso.write(row, 5, l.defect or 'N/A',           fmt_def_odd if odd else fmt_def_even)
-                    wso.write(row, 6, str(l.date_in) if l.date_in else '-', fmt_dt_odd if odd else fmt_dt_even)
-                    dout = str(l.date_out) if l.date_out else None
-                    wso.write(row, 7, dout if dout else '-', (fmt_dt_odd if odd else fmt_dt_even) if dout else fmt_dash)
-                    status = (l.status_type or 'UNKNOWN').upper().strip()
-                    sc2 = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
-                    fmt_st = _fmt({'bold':True,'font_size':8,'align':'center','valign':'vcenter',
-                                    'bg_color':'#'+sc2['bg'],'font_color':'#'+sc2['fg'],
-                                    'border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-                    wso.write(row, 8, status, fmt_st)
-                    wso.write(row, 9, l.pic or 'N/A', fmt_odd if odd else fmt_even)
-                tot_y = len(sheet_logs) + 4; wso.set_row(tot_y, 22)
-                wso.merge_range(tot_y, 0, tot_y, 8, 'TOTAL RECORDS', ftl)
-                wso.write(tot_y, 9, len(sheet_logs), ftv)
+        s_row = len(sc_map) + 4; ws2.set_row(s_row, 24)
+        ws2.write(s_row, 0, "GRAND TOTAL", fmt_tot_lbl)
+        ws2.write(s_row, 1, total, fmt_tot_val)
+        ws2.write(s_row, 2, 1.0, fmt_s_tpc)
 
-            # ── Per-year sheets ──────────────────────────────────────
-            from collections import defaultdict
-            year_map = defaultdict(list)
-            for l in logs:
-                yr = l.date_in.year if l.date_in else 0
-                year_map[yr].append(l)
+        chart = wb.add_chart({"type": "pie"})
+        chart.add_series({
+            "name": "Status Distribution",
+            "categories": ["Status Summary", 4, 0, 3 + len(sc_map), 0],
+            "values":     ["Status Summary", 4, 1, 3 + len(sc_map), 1],
+        })
+        chart.set_title({"name": "Repair Status Distribution"})
+        chart.set_style(10)
+        chart.set_size({"width": 420, "height": 280})
+        ws2.insert_chart(4, 4, chart, {"x_offset": 5, "y_offset": 5})
 
-            YEAR_ACCENTS = [
-                {'hdr_bg':'#1E3A5F','banner_bg':'#0F2340','tab':'#3B82F6'},
-                {'hdr_bg':'#3B1F5E','banner_bg':'#1E0F40','tab':'#8B5CF6'},
-                {'hdr_bg':'#1A4731','banner_bg':'#0A2818','tab':'#10B981'},
-                {'hdr_bg':'#78350F','banner_bg':'#451A03','tab':'#F59E0B'},
-                {'hdr_bg':'#7F1D1D','banner_bg':'#450A0A','tab':'#EF4444'},
-                {'hdr_bg':'#164E63','banner_bg':'#083344','tab':'#06B6D4'},
-            ]
-
-            for yi, year in enumerate(sorted(year_map.keys(), reverse=True)):
-                year_logs = year_map[year]
-                acc = YEAR_ACCENTS[yi % len(YEAR_ACCENTS)]
-                sheet_name = str(year) if year else 'Unknown'
-                wsy = wb.add_worksheet(sheet_name)
-                writer.sheets[sheet_name] = wsy
-                wsy.set_tab_color(acc['tab'])
-                _write_log_sheet(wsy, year_logs,
-                    f'  G7 AEROSPACE  -  REPAIR LOG  {year}',
-                    f'  Generated: {datetime.now().strftime("%d %B %Y  |  %H:%M")}   |   Records for {year}: {len(year_logs)}',
-                    _fmt({'bold':True,'font_size':18,'font_color':'#FFFFFF','bg_color':acc['banner_bg'],'align':'left','valign':'vcenter','font_name':'Arial'}),
-                    _fmt({'font_size':9,'font_color':'#94A3B8','bg_color':acc['banner_bg'],'align':'left','valign':'vcenter','font_name':'Arial'}),
-                    _fmt({'bg_color':acc['banner_bg']}),
-                    _fmt({'bold':True,'font_size':9,'font_color':'#FFFFFF','bg_color':acc['hdr_bg'],'align':'center','valign':'vcenter','border':1,'border_color':'#334155','text_wrap':True,'font_name':'Arial'}),
-                    _fmt({'bold':True,'font_size':9,'align':'center','valign':'vcenter','bg_color':acc['hdr_bg'],'font_color':'#94A3B8','border':1,'border_color':'#334155','font_name':'Arial'}),
-                    _fmt({'bold':True,'font_size':10,'font_color':'#FFFFFF','bg_color':acc['banner_bg'],'align':'right','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'}),
-                    _fmt({'bold':True,'font_size':10,'font_color':'#FBBF24','bg_color':acc['banner_bg'],'align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'}),
-                )
-
+        wb.close()
         output.seek(0)
         fname = f"G7_Repair_Log_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
         return send_file(output,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=fname)
     except Exception as e:
         logger.error(f"Excel Export Error: {e}")
         return f"Error Exporting Excel: {e}"
+
 
 
 # ==============================================================================
