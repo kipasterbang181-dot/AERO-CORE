@@ -401,11 +401,15 @@
                     </div>
 
                     <div class="relative">
-                        <select id="statusFilter" onchange="filterTable()" class="bg-white border border-slate-200 text-slate-700 text-xs rounded-3xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 block pl-4 pr-8 p-4 font-bold tracking-wide transition-all shadow-sm outline-none appearance-none cursor-pointer min-w-[160px]">
-                            <option value="ALL">📋 All Status</option>
-                            {% for status in status_list %}
-                            <option value="{{ status }}">{{ status }}</option>
-                            {% endfor %}
+                        <select id="statusFilter" onchange="filterTable()" class="bg-white border border-slate-200 text-slate-700 text-xs rounded-3xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 block pl-4 pr-8 p-4 font-bold tracking-wide transition-all shadow-sm outline-none appearance-none cursor-pointer min-w-[200px]">
+                            <option value="ALL">📋 All Active Status</option>
+                            <option value="TDI IN PROGRESS">🔵 TDI In Progress</option>
+                            <option value="READY TO QUOTE">🟡 Ready To Quote</option>
+                            <option value="OV TDI">🟣 OV TDI</option>
+                            <option value="WARRANTY REPAIR">🔷 Warranty Repair</option>
+                            <option value="RETURN TO PUTD">🔴 Return To PUTD</option>
+                            <option value="RETURN TO AEROTREE">🩷 Return To Aerotree</option>
+                            <option value="SERVICEABLE">🟢 Serviceable</option>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -483,8 +487,13 @@
                                     <div class="mb-3">
                                         <span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border
                                             {% if log.status_type == 'SERVICEABLE' %} bg-emerald-100 text-emerald-700 border-emerald-200
-                                            {% elif 'TDI' in log.status_type %} bg-amber-100 text-amber-700 border-amber-200
-                                            {% else %} bg-blue-100 text-blue-700 border-blue-200 {% endif %}">
+                                            {% elif log.status_type == 'TDI IN PROGRESS' %} bg-cyan-100 text-cyan-700 border-cyan-200
+                                            {% elif log.status_type == 'READY TO QUOTE' %} bg-amber-100 text-amber-700 border-amber-200
+                                            {% elif log.status_type == 'OV TDI' %} bg-violet-100 text-violet-700 border-violet-200
+                                            {% elif log.status_type == 'WARRANTY REPAIR' %} bg-blue-100 text-blue-700 border-blue-200
+                                            {% elif log.status_type == 'RETURN TO PUTD' %} bg-rose-100 text-rose-700 border-rose-200
+                                            {% elif log.status_type == 'RETURN TO AEROTREE' %} bg-pink-100 text-pink-700 border-pink-200
+                                            {% else %} bg-slate-100 text-slate-600 border-slate-200 {% endif %}">
                                             {{ log.status_type }}
                                         </span>
                                     </div>
@@ -694,8 +703,12 @@
         }
 
         function exportFullDatabase() {
-            // Guna Flask route untuk Excel yang cantik dan berwarna-warni
-            window.location.href = '/export_excel';
+            const table = document.getElementById("mainTable");
+            const wb = XLSX.utils.table_to_book(table, { 
+                sheet: "G7_Aerospace_Records",
+                raw: true 
+            });
+            XLSX.writeFile(wb, "G7_Full_Database_Export.xlsx");
         }
 
         function parseExcelDate(val) {
@@ -857,6 +870,17 @@
         }
 
         // ✅ FIXED: Filter Table (Combined Search + Status)
+        // 7 statuses shown in table — others hidden by default
+        const ACTIVE_STATUSES = [
+            "TDI IN PROGRESS",
+            "READY TO QUOTE",
+            "OV TDI",
+            "WARRANTY REPAIR",
+            "RETURN TO PUTD",
+            "RETURN TO AEROTREE",
+            "SERVICEABLE"
+        ];
+
         function filterTable() {
             const searchVal = document.getElementById("searchInput").value.toUpperCase();
             const statusVal = document.getElementById("statusFilter").value;
@@ -867,39 +891,6 @@
 
             rows.forEach(row => {
                 const rowStatus = (row.getAttribute("data-status") || "").toUpperCase();
-                const statusMatch = (statusVal === "ALL" || rowStatus === statusVal);
-
-                let textMatch = true;
-                if (searchVal !== "") {
-                    textMatch = false;
-                    const targets = row.querySelectorAll(".filter-target");
-                    for (let target of targets) {
-                        if (target.textContent.toUpperCase().indexOf(searchVal) > -1) {
-                            textMatch = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (statusMatch && textMatch) {
-                    row.style.display = "";
-                    visibleCount++;
-                } else {
-                    row.style.display = "none";
-                }
-            });
-
-            // Update count
-            const countEl = document.getElementById("totalCount");
-            if (countEl) {
-                countEl.textContent = visibleCount;
-            }
-        }
-
-        window.onload = () => {
-            const savedLang = localStorage.getItem('g7_lang') || 'en';
-            changeLanguage(savedLang);
-        };
-    </script>
-</body>
-</html>     
+                // Always filter to active statuses; if "ALL" show all 7 active statuses
+                const inActiveList = ACTIVE_STATUSES.includes(rowStatus);
+                const statusMatch = inActiveList && (statusVal === "ALL" || rowStatus === statusVal);

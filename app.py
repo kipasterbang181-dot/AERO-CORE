@@ -160,6 +160,9 @@ def normalize_status(status_str):
     if 'RETURN' in status and 'AEROTREE' in status:
         return 'RETURN TO AEROTREE'
 
+    if 'RETURN' in status and 'PUTD' in status:
+        return 'RETURN TO PUTD'
+
     # ── Under Repair (catch generic REPAIR last) ──
     if status in ('UNDER REPAIR', 'REPAIR'):
         return 'UNDER REPAIR'
@@ -312,34 +315,16 @@ def admin():
     try:
         logs = RepairLog.query.order_by(RepairLog.id.desc()).all()
 
-        # ── Canonical status list (stats table rows) ──
+        # ── Fixed 7-status list shown in dashboard & filter ──
         status_list = [
-            "SERVICEABLE",
-            "RETURN UNSERVICEABLE",
-            "UNDER REPAIR",
-            "OV REPAIR",
+            "TDI IN PROGRESS",
+            "READY TO QUOTE",
             "OV TDI",
             "WARRANTY REPAIR",
-            "TDI IN PROGRESS",
-            "TDI TO REVIEW",
-            "TDI READY TO QUOTE",
-            "READY TO QUOTE",
-            "QUOTE SUBMITTED",
-            "READY TO DELIVERED",
-            "READY TO DELIVERED WARRANTY",
-            "WAITING LO",
-            "AWAITING SPARE",
-            "SPARE READY",
-            "ISOLATED",
+            "RETURN TO PUTD",
             "RETURN TO AEROTREE",
+            "SERVICEABLE",
         ]
-
-        # Add any DB status not yet in the list (future-proof)
-        for (s,) in db.session.query(RepairLog.status_type).distinct():
-            if s:
-                up = s.upper().strip()
-                if up not in status_list:
-                    status_list.append(up)
 
         # ── Year columns ──
         years = sorted({l.date_in.year for l in logs if l.date_in}) or [datetime.now().year]
@@ -930,13 +915,3 @@ def normalize_existing_statuses():
         flash(report, "success")
     except Exception as e:
         db.session.rollback()
-        flash(f"❌ Error: {str(e)}", "error")
-    return redirect(url_for('admin'))
-
-
-# ==============================================================================
-# ENTRY POINT
-# ==============================================================================
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
