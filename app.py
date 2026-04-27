@@ -656,156 +656,338 @@ def export_excel_data():
     if not session.get('admin'):
         return redirect(url_for('login', next=request.path))
     try:
-        from collections import Counter
+        from openpyxl import Workbook
+        from openpyxl.styles import (Font, PatternFill, Alignment, Border, Side,
+                                     GradientFill)
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles.numbers import FORMAT_DATE_DDMMYY
 
-        logs   = RepairLog.query.order_by(RepairLog.id.desc()).all()
-        output = io.BytesIO()
+        logs = RepairLog.query.order_by(RepairLog.date_in.asc(), RepairLog.id.asc()).all()
 
-        STATUS_COLORS = {
-            "SERVICEABLE":                 {"bg": "16A34A", "fg": "FFFFFF"},
-            "RETURN UNSERVICEABLE":        {"bg": "DC2626", "fg": "FFFFFF"},
-            "UNDER REPAIR":               {"bg": "D97706", "fg": "FFFFFF"},
-            "OV REPAIR":                  {"bg": "9333EA", "fg": "FFFFFF"},
-            "OV TDI":                     {"bg": "7C3AED", "fg": "FFFFFF"},
-            "WARRANTY REPAIR":            {"bg": "0369A1", "fg": "FFFFFF"},
-            "TDI IN PROGRESS":            {"bg": "0891B2", "fg": "FFFFFF"},
-            "TDI TO REVIEW":              {"bg": "06B6D4", "fg": "1E293B"},
-            "TDI READY TO QUOTE":         {"bg": "67E8F9", "fg": "1E293B"},
-            "READY TO QUOTE":             {"bg": "FBBF24", "fg": "1E293B"},
-            "QUOTE SUBMITTED":            {"bg": "F59E0B", "fg": "FFFFFF"},
-            "READY TO DELIVERED":         {"bg": "10B981", "fg": "FFFFFF"},
-            "READY TO DELIVERED WARRANTY":{"bg": "059669", "fg": "FFFFFF"},
-            "WAITING LO":                 {"bg": "94A3B8", "fg": "FFFFFF"},
-            "AWAITING SPARE":             {"bg": "F97316", "fg": "FFFFFF"},
-            "SPARE READY":                {"bg": "84CC16", "fg": "1E293B"},
-            "ISOLATED":                   {"bg": "64748B", "fg": "FFFFFF"},
-            "RETURN TO AEROTREE":         {"bg": "BE185D", "fg": "FFFFFF"},
+        # ── Colour palette ──────────────────────────────────────────────────────
+        NAVY        = "0F172A"
+        PURPLE      = "7C3AED"
+        CYAN        = "0891B2"
+        GREEN       = "059669"
+        ORANGE      = "EA580C"
+        RED         = "BE123C"
+        AMBER       = "D97706"
+        BLUE        = "1D4ED8"
+        WHITE       = "FFFFFF"
+        LIGHT_GRAY  = "F1F5F9"
+        DARK_GRAY   = "334155"
+
+        # year → accent colour
+        YEAR_COLORS = {
+            2022: "F97316",   # orange
+            2023: "8B5CF6",   # purple
+            2024: "06B6D4",   # cyan
+            2025: "10B981",   # green
+            2026: "F43F5E",   # pink-red
         }
 
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            wb = writer.book
-            def _fmt(p): return wb.add_format(p)
+        # status → fill colour
+        STATUS_COLORS = {
+            "SERVICEABLE":            "D1FAE5",
+            "RETURN UNSERVICEABLE":   "FEE2E2",
+            "UNDER REPAIR":           "DBEAFE",
+            "OV REPAIR":              "DBEAFE",
+            "OV TDI":                 "FEF3C7",
+            "WARRANTY REPAIR":        "FFEDD5",
+            "TDI IN PROGRESS":        "FEF3C7",
+            "TDI TO REVIEW":          "FEF3C7",
+            "TDI READY TO QUOTE":     "FEF3C7",
+            "READY TO QUOTE":         "E0F2FE",
+            "QUOTE SUBMITTED":        "E0F2FE",
+            "READY TO DELIVERED":     "D1FAE5",
+            "AWAITING SPARE":         "EDE9FE",
+            "SPARE READY":            "D1FAE5",
+            "WAITING LO":             "FEF9C3",
+            "ISOLATED":               "F1F5F9",
+            "RETURN TO AEROTREE":     "FEE2E2",
+        }
+        STATUS_TEXT = {
+            "SERVICEABLE":            "065F46",
+            "RETURN UNSERVICEABLE":   "991B1B",
+            "UNDER REPAIR":           "1E40AF",
+            "OV REPAIR":              "1E40AF",
+            "OV TDI":                 "92400E",
+            "WARRANTY REPAIR":        "9A3412",
+            "TDI IN PROGRESS":        "92400E",
+            "TDI TO REVIEW":          "92400E",
+            "TDI READY TO QUOTE":     "92400E",
+            "READY TO QUOTE":         "075985",
+            "QUOTE SUBMITTED":        "075985",
+            "READY TO DELIVERED":     "065F46",
+            "AWAITING SPARE":         "4C1D95",
+            "SPARE READY":            "065F46",
+            "WAITING LO":             "713F12",
+            "ISOLATED":               "475569",
+            "RETURN TO AEROTREE":     "991B1B",
+        }
 
-            fmt_title   = _fmt({'bold':True,'font_size':18,'font_color':'#FFFFFF','bg_color':'#0F172A','align':'left','valign':'vcenter','font_name':'Arial'})
-            fmt_sub     = _fmt({'font_size':9,'font_color':'#94A3B8','bg_color':'#0F172A','align':'left','valign':'vcenter','font_name':'Arial'})
-            fmt_blank   = _fmt({'bg_color':'#0F172A'})
-            fmt_hdr     = _fmt({'bold':True,'font_size':9,'font_color':'#FFFFFF','bg_color':'#1E293B','align':'center','valign':'vcenter','border':1,'border_color':'#334155','text_wrap':True,'font_name':'Arial'})
-            fmt_id      = _fmt({'bold':True,'font_size':9,'align':'center','valign':'vcenter','bg_color':'#1E293B','font_color':'#94A3B8','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_odd     = _fmt({'font_size':9,'align':'left','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial','text_wrap':True})
-            fmt_even    = _fmt({'font_size':9,'align':'left','valign':'vcenter','bg_color':'#FFFFFF','border':1,'border_color':'#E2E8F0','font_name':'Arial','text_wrap':True})
-            fmt_pn_odd  = _fmt({'font_size':9,'bold':True,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','font_color':'#1D4ED8','border':1,'border_color':'#E2E8F0','font_name':'Courier New'})
-            fmt_pn_even = _fmt({'font_size':9,'bold':True,'align':'center','valign':'vcenter','bg_color':'#FFFFFF','font_color':'#1D4ED8','border':1,'border_color':'#E2E8F0','font_name':'Courier New'})
-            fmt_dt_odd  = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial Narrow'})
-            fmt_dt_even = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#FFFFFF','border':1,'border_color':'#E2E8F0','font_name':'Arial Narrow'})
-            fmt_dash    = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F1F5F9','font_color':'#CBD5E1','border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-            fmt_def_odd = _fmt({'font_size':8,'italic':True,'align':'left','valign':'vcenter','bg_color':'#FFF7ED','font_color':'#9A3412','border':1,'border_color':'#FDBA74','font_name':'Arial','text_wrap':True})
-            fmt_def_even= _fmt({'font_size':8,'italic':True,'align':'left','valign':'vcenter','bg_color':'#FFF7ED','font_color':'#9A3412','border':1,'border_color':'#FDBA74','font_name':'Arial','text_wrap':True})
-            fmt_tot_lbl = _fmt({'bold':True,'font_size':10,'font_color':'#FFFFFF','bg_color':'#0F172A','align':'right','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_tot_val = _fmt({'bold':True,'font_size':10,'font_color':'#FBBF24','bg_color':'#0F172A','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
+        def solid(hex_color):
+            return PatternFill("solid", fgColor=hex_color)
 
-            # ── Sheet 1: Repair Log ──────────────────────────────────
-            ws = wb.add_worksheet('Repair Log')
-            writer.sheets['Repair Log'] = ws
-            ws.set_zoom(90)
-            ws.freeze_panes(4, 0)
-            ws.set_row(0, 34); ws.set_row(1, 18); ws.set_row(2, 5); ws.set_row(3, 28)
+        def thin_border(color="CBD5E1"):
+            s = Side(style="thin", color=color)
+            return Border(left=s, right=s, top=s, bottom=s)
 
-            COLS  = ["ID","DRN","EQUIPMENT","P/N","S/N","DEFECT / REMARKS","DATE IN","DATE OUT","STATUS","PIC / JTP"]
-            COL_W = [5, 12, 30, 18, 18, 42, 13, 13, 24, 22]
-            for i, w in enumerate(COL_W): ws.set_column(i, i, w)
+        def center_align(wrap=False):
+            return Alignment(horizontal="center", vertical="center", wrap_text=wrap)
 
-            ws.merge_range('A1:J1', '  G7 AEROSPACE  -  MAINTENANCE REPAIR LOG', fmt_title)
-            ws.merge_range('A2:J2', f'  Generated: {datetime.now().strftime("%d %B %Y  |  %H:%M")}   |   Total Records: {len(logs)}', fmt_sub)
-            ws.merge_range('A3:J3', '', fmt_blank)
-            for ci, col in enumerate(COLS): ws.write(3, ci, col, fmt_hdr)
+        def left_align(wrap=False):
+            return Alignment(horizontal="left", vertical="center", wrap_text=wrap)
 
-            for ri, l in enumerate(logs):
-                row = ri + 4
-                ws.set_row(row, 20)
-                odd = ri % 2 == 0
-                ws.write(row, 0, l.id,                         fmt_id)
-                ws.write(row, 1, l.drn or '-',                 fmt_odd  if odd else fmt_even)
-                ws.write(row, 2, l.peralatan or '-',           fmt_odd  if odd else fmt_even)
-                ws.write(row, 3, l.pn or '-',                  fmt_pn_odd if odd else fmt_pn_even)
-                ws.write(row, 4, l.sn or '-',                  fmt_pn_odd if odd else fmt_pn_even)
-                ws.write(row, 5, l.defect or 'N/A',            fmt_def_odd if odd else fmt_def_even)
-                ws.write(row, 6, str(l.date_in) if l.date_in else '-',
-                                                               fmt_dt_odd if odd else fmt_dt_even)
-                dout = str(l.date_out) if l.date_out else None
-                ws.write(row, 7, dout if dout else '-',
-                         (fmt_dt_odd if odd else fmt_dt_even) if dout else fmt_dash)
+        wb = Workbook()
 
-                status = (l.status_type or 'UNKNOWN').upper().strip()
-                sc = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
-                fmt_st = _fmt({'bold':True,'font_size':8,'align':'center','valign':'vcenter',
-                                'bg_color':'#'+sc['bg'],'font_color':'#'+sc['fg'],
-                                'border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-                ws.write(row, 8, status, fmt_st)
-                ws.write(row, 9, l.pic or 'N/A', fmt_odd if odd else fmt_even)
+        # ── Group logs by year ──────────────────────────────────────────────────
+        from collections import defaultdict
+        by_year = defaultdict(list)
+        for l in logs:
+            yr = l.date_in.year if l.date_in else 0
+            by_year[yr].append(l)
 
-            tot = len(logs) + 4
-            ws.set_row(tot, 22)
-            ws.merge_range(tot, 0, tot, 8, 'TOTAL RECORDS', fmt_tot_lbl)
-            ws.write(tot, 9, len(logs), fmt_tot_val)
+        sorted_years = sorted(by_year.keys())
 
-            # ── Sheet 2: Status Summary ──────────────────────────────
-            ws2 = wb.add_worksheet('Status Summary')
-            writer.sheets['Status Summary'] = ws2
-            ws2.set_zoom(90)
-            ws2.set_column(0, 0, 30); ws2.set_column(1, 1, 14); ws2.set_column(2, 2, 14)
-            ws2.set_row(0, 36); ws2.set_row(1, 18); ws2.set_row(2, 6); ws2.set_row(3, 24)
+        # ══════════════════════════════════════════════════════════════════════════
+        #  SHEET 1 – SUMMARY DASHBOARD
+        # ══════════════════════════════════════════════════════════════════════════
+        ws_sum = wb.active
+        ws_sum.title = "📊 Summary"
+        ws_sum.sheet_view.showGridLines = False
 
-            fmt_s_hdr = _fmt({'bold':True,'font_size':9,'font_color':'#FFFFFF','bg_color':'#1E293B','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial'})
-            fmt_s_cnt = _fmt({'bold':True,'font_size':11,'align':'center','valign':'vcenter','bg_color':'#F8FAFC','border':1,'border_color':'#E2E8F0','font_name':'Arial'})
-            fmt_s_pct = _fmt({'font_size':9,'align':'center','valign':'vcenter','bg_color':'#F1F5F9','font_color':'#64748B','border':1,'border_color':'#E2E8F0','font_name':'Arial','num_format':'0.0%'})
-            fmt_s_sub = _fmt({'font_size':9,'font_color':'#94A3B8','bg_color':'#0F172A','font_name':'Arial'})
-            fmt_s_tpct= _fmt({'bold':True,'font_size':10,'font_color':'#FBBF24','bg_color':'#0F172A','align':'center','valign':'vcenter','border':1,'border_color':'#334155','font_name':'Arial','num_format':'0.0%'})
+        # Title block
+        ws_sum.merge_cells("A1:H1")
+        t = ws_sum["A1"]
+        t.value = "G7 AEROSPACE — MAINTENANCE RECORD EXPORT"
+        t.font  = Font(name="Arial", bold=True, size=18, color=WHITE)
+        t.fill  = solid(NAVY)
+        t.alignment = center_align()
+        ws_sum.row_dimensions[1].height = 44
 
-            ws2.merge_range('A1:C1', '  STATUS SUMMARY', fmt_title)
-            ws2.merge_range('A2:C2', f'  G7 Aerospace  -  {datetime.now().strftime("%d %B %Y")}', fmt_s_sub)
-            ws2.merge_range('A3:C3', '', fmt_blank)
-            ws2.write(3, 0, 'STATUS', fmt_s_hdr)
-            ws2.write(3, 1, 'COUNT',  fmt_s_hdr)
-            ws2.write(3, 2, '% OF TOTAL', fmt_s_hdr)
+        ws_sum.merge_cells("A2:H2")
+        sub = ws_sum["A2"]
+        sub.value = f"Generated: {datetime.now().strftime('%d %B %Y  %H:%M')}   |   Total Records: {len(logs)}"
+        sub.font  = Font(name="Arial", size=10, color="94A3B8")
+        sub.fill  = solid(NAVY)
+        sub.alignment = center_align()
+        ws_sum.row_dimensions[2].height = 22
 
-            sc_map = Counter((l.status_type or 'UNKNOWN').upper().strip() for l in logs)
-            total  = len(logs)
-            for ri, (status, count) in enumerate(sorted(sc_map.items(), key=lambda x: -x[1])):
-                row = ri + 4
-                ws2.set_row(row, 22)
-                sc = STATUS_COLORS.get(status, {"bg": "475569", "fg": "FFFFFF"})
-                fmt_lbl = _fmt({'bold':True,'font_size':9,'align':'left','valign':'vcenter',
-                                 'bg_color':'#'+sc['bg'],'font_color':'#'+sc['fg'],
-                                 'border':1,'border_color':'#E2E8F0','font_name':'Arial','indent':1})
-                ws2.write(row, 0, status, fmt_lbl)
-                ws2.write(row, 1, count, fmt_s_cnt)
-                ws2.write(row, 2, count / total if total else 0, fmt_s_pct)
+        ws_sum.row_dimensions[3].height = 10   # spacer
 
-            s_row = len(sc_map) + 4
-            ws2.set_row(s_row, 24)
-            ws2.write(s_row, 0, 'GRAND TOTAL', fmt_tot_lbl)
-            ws2.write(s_row, 1, total, fmt_tot_val)
-            ws2.write(s_row, 2, 1.0, fmt_s_tpct)
+        # Status summary header
+        headers_sum = ["STATUS", "TOTAL"] + [str(y) for y in sorted_years]
+        col_colors  = [NAVY, DARK_GRAY] + [YEAR_COLORS.get(y, DARK_GRAY) for y in sorted_years]
 
-            chart = wb.add_chart({'type': 'pie'})
-            chart.add_series({
-                'name': 'Status Distribution',
-                'categories': [ws2.name, 4, 0, 3 + len(sc_map), 0],
-                'values':     [ws2.name, 4, 1, 3 + len(sc_map), 1],
-            })
-            chart.set_title({'name': 'Repair Status Distribution'})
-            chart.set_style(10)
-            chart.set_size({'width': 420, 'height': 280})
-            ws2.insert_chart(4, 4, chart, {'x_offset': 5, 'y_offset': 5})
+        for ci, (h, cc) in enumerate(zip(headers_sum, col_colors), start=1):
+            cell = ws_sum.cell(row=4, column=ci, value=h)
+            cell.font      = Font(name="Arial", bold=True, size=9, color=WHITE)
+            cell.fill      = solid(cc)
+            cell.alignment = center_align()
+            cell.border    = thin_border(cc)
+        ws_sum.row_dimensions[4].height = 28
 
+        # Build status matrix
+        status_list = [
+            "SERVICEABLE","RETURN UNSERVICEABLE","UNDER REPAIR","OV REPAIR","OV TDI",
+            "WARRANTY REPAIR","TDI IN PROGRESS","TDI TO REVIEW","TDI READY TO QUOTE",
+            "READY TO QUOTE","QUOTE SUBMITTED","READY TO DELIVERED","AWAITING SPARE",
+            "SPARE READY","WAITING LO","ISOLATED","RETURN TO AEROTREE",
+        ]
+        # add any unexpected statuses
+        for l in logs:
+            if l.status_type and l.status_type.upper() not in status_list:
+                status_list.append(l.status_type.upper())
+
+        matrix = {st: {y: 0 for y in sorted_years} for st in status_list}
+        year_totals = {y: 0 for y in sorted_years}
+        for l in logs:
+            yr = l.date_in.year if l.date_in else None
+            st = (l.status_type or "").upper().strip()
+            if yr and st in matrix:
+                matrix[st][yr] += 1
+                year_totals[yr] += 1
+
+        for ri, st in enumerate(status_list, start=5):
+            row_total = sum(matrix[st].values())
+            bg  = STATUS_COLORS.get(st, "F8FAFC")
+            txt = STATUS_TEXT.get(st, "1E293B")
+
+            # status name
+            c0 = ws_sum.cell(row=ri, column=1, value=st)
+            c0.font      = Font(name="Arial", bold=True, size=9, color=txt)
+            c0.fill      = solid(bg)
+            c0.alignment = left_align()
+            c0.border    = thin_border()
+
+            # total
+            c1 = ws_sum.cell(row=ri, column=2, value=row_total)
+            c1.font      = Font(name="Arial", bold=True, size=10,
+                                color=WHITE if row_total > 0 else "94A3B8")
+            c1.fill      = solid(PURPLE if row_total > 0 else "F1F5F9")
+            c1.alignment = center_align()
+            c1.border    = thin_border()
+
+            # per-year cells
+            for ci, yr in enumerate(sorted_years, start=3):
+                v   = matrix[st][yr]
+                yc  = YEAR_COLORS.get(yr, DARK_GRAY)
+                cell = ws_sum.cell(row=ri, column=ci, value=v if v > 0 else "—")
+                cell.font      = Font(name="Arial", bold=(v > 0), size=10,
+                                      color=yc if v > 0 else "CBD5E1")
+                cell.fill      = solid("F8FAFC")
+                cell.alignment = center_align()
+                cell.border    = thin_border()
+            ws_sum.row_dimensions[ri].height = 22
+
+        # Grand total row
+        gt_row = len(status_list) + 5
+        ws_sum.cell(row=gt_row, column=1, value="GRAND TOTAL").font = Font(
+            name="Arial", bold=True, size=10, color=WHITE)
+        ws_sum.cell(row=gt_row, column=1).fill      = solid(NAVY)
+        ws_sum.cell(row=gt_row, column=1).alignment = left_align()
+        ws_sum.cell(row=gt_row, column=1).border    = thin_border(NAVY)
+
+        ws_sum.cell(row=gt_row, column=2, value=len(logs)).font = Font(
+            name="Arial", bold=True, size=12, color=WHITE)
+        ws_sum.cell(row=gt_row, column=2).fill      = solid(PURPLE)
+        ws_sum.cell(row=gt_row, column=2).alignment = center_align()
+        ws_sum.cell(row=gt_row, column=2).border    = thin_border(PURPLE)
+
+        for ci, yr in enumerate(sorted_years, start=3):
+            v    = year_totals[yr]
+            yc   = YEAR_COLORS.get(yr, DARK_GRAY)
+            cell = ws_sum.cell(row=gt_row, column=ci, value=v)
+            cell.font      = Font(name="Arial", bold=True, size=11, color=WHITE)
+            cell.fill      = solid(yc)
+            cell.alignment = center_align()
+            cell.border    = thin_border(yc)
+        ws_sum.row_dimensions[gt_row].height = 30
+
+        # Column widths for summary
+        ws_sum.column_dimensions["A"].width = 32
+        ws_sum.column_dimensions["B"].width = 12
+        for ci in range(3, 3 + len(sorted_years)):
+            ws_sum.column_dimensions[get_column_letter(ci)].width = 12
+
+        # ══════════════════════════════════════════════════════════════════════════
+        #  SHEETS 2..N – ONE PER YEAR
+        # ══════════════════════════════════════════════════════════════════════════
+        COL_HEADERS = ["#", "EQUIPMENT", "PART NUMBER", "SERIAL NUMBER",
+                       "DEFECT / REMARKS", "DATE IN", "DATE OUT", "STATUS", "PIC / JTP"]
+        COL_WIDTHS  = [6, 32, 20, 20, 40, 13, 13, 26, 22]
+
+        for yr in sorted_years:
+            year_logs = by_year[yr]
+            yc = YEAR_COLORS.get(yr, DARK_GRAY)
+
+            ws = wb.create_sheet(title=f"Year {yr}")
+            ws.sheet_view.showGridLines = False
+
+            # ── Title bar ──
+            last_col = get_column_letter(len(COL_HEADERS))
+            ws.merge_cells(f"A1:{last_col}1")
+            tc = ws["A1"]
+            tc.value     = f"G7 AEROSPACE — MAINTENANCE RECORDS  ·  {yr}"
+            tc.font      = Font(name="Arial", bold=True, size=16, color=WHITE)
+            tc.fill      = solid(NAVY)
+            tc.alignment = center_align()
+            ws.row_dimensions[1].height = 42
+
+            ws.merge_cells(f"A2:{last_col}2")
+            sc = ws["A2"]
+            sc.value     = (f"Total units for {yr}: {len(year_logs)}  |  "
+                            f"Generated: {datetime.now().strftime('%d %B %Y')}")
+            sc.font      = Font(name="Arial", size=9, italic=True, color="CBD5E1")
+            sc.fill      = solid(yc)
+            sc.alignment = center_align()
+            ws.row_dimensions[2].height = 20
+
+            ws.row_dimensions[3].height = 8  # spacer
+
+            # ── Column headers ──
+            for ci, (hdr, w) in enumerate(zip(COL_HEADERS, COL_WIDTHS), start=1):
+                cell = ws.cell(row=4, column=ci, value=hdr)
+                cell.font      = Font(name="Arial", bold=True, size=9, color=WHITE)
+                cell.fill      = solid(yc)
+                cell.alignment = center_align(wrap=True)
+                cell.border    = thin_border(yc)
+                ws.column_dimensions[get_column_letter(ci)].width = w
+            ws.row_dimensions[4].height = 30
+            ws.freeze_panes = "A5"
+
+            # ── Data rows ──
+            for ri, l in enumerate(year_logs, start=5):
+                st     = (l.status_type or "").upper().strip()
+                bg     = STATUS_COLORS.get(st, "F8FAFC")
+                txt    = STATUS_TEXT.get(st, "1E293B")
+                row_bg = "FFFFFF" if ri % 2 == 0 else LIGHT_GRAY
+
+                row_data = [
+                    ri - 4,
+                    l.peralatan or "N/A",
+                    l.pn or "N/A",
+                    l.sn or "N/A",
+                    l.defect or "N/A",
+                    str(l.date_in) if l.date_in else "—",
+                    str(l.date_out) if l.date_out else "—",
+                    st,
+                    l.pic or "N/A",
+                ]
+
+                for ci, val in enumerate(row_data, start=1):
+                    cell = ws.cell(row=ri, column=ci, value=val)
+                    cell.border = thin_border("E2E8F0")
+
+                    if ci == 1:   # row number
+                        cell.font      = Font(name="Arial", size=8, color="94A3B8")
+                        cell.fill      = solid(row_bg)
+                        cell.alignment = center_align()
+                    elif ci == 2: # equipment – bold
+                        cell.font      = Font(name="Arial", bold=True, size=10, color="0F172A")
+                        cell.fill      = solid(row_bg)
+                        cell.alignment = left_align(wrap=True)
+                    elif ci in (3, 4): # P/N, S/N – monospace style
+                        cell.font      = Font(name="Courier New", size=9,
+                                              color="1E40AF" if ci == 4 else "334155")
+                        cell.fill      = solid("EFF6FF" if ci == 4 else row_bg)
+                        cell.alignment = center_align()
+                    elif ci == 5: # defect – italic amber
+                        cell.font      = Font(name="Arial", size=9, italic=True, color="92400E")
+                        cell.fill      = solid("FFFBEB")
+                        cell.alignment = left_align(wrap=True)
+                    elif ci in (6, 7): # dates
+                        cell.font      = Font(name="Arial", size=9, color="475569")
+                        cell.fill      = solid(row_bg)
+                        cell.alignment = center_align()
+                    elif ci == 8: # status badge
+                        cell.font      = Font(name="Arial", bold=True, size=8, color=txt)
+                        cell.fill      = solid(bg)
+                        cell.alignment = center_align(wrap=True)
+                    elif ci == 9: # PIC
+                        cell.font      = Font(name="Arial", size=9, color="475569")
+                        cell.fill      = solid(row_bg)
+                        cell.alignment = left_align(wrap=True)
+
+                ws.row_dimensions[ri].height = 20
+
+        # ── Remove default empty sheet if still present ──
+        if "Sheet" in wb.sheetnames:
+            del wb["Sheet"]
+
+        output = io.BytesIO()
+        wb.save(output)
         output.seek(0)
-        fname = f"G7_Repair_Log_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        fname = f"G7_Aerospace_{datetime.now().strftime('%Y%m%d')}.xlsx"
         return send_file(output,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=fname)
+
     except Exception as e:
         logger.error(f"Excel Export Error: {e}")
-        return f"Error Exporting Excel: {e}"
+        import traceback
+        return f"Error Exporting Excel: {e}<br><pre>{traceback.format_exc()}</pre>"
 
 
 # ==============================================================================
