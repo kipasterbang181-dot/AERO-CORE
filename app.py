@@ -128,12 +128,12 @@ def normalize_status(status_str):
     # ── TDI sub-statuses  ──
     if 'TDI' in status:
         if 'PROGRESS' in status:
-            return 'TDI IN PROGRESS'
+            return 'TDI ON PROGRESS'
         if 'REVIEW' in status:
             return 'TDI TO REVIEW'
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
-        return 'TDI IN PROGRESS'          # bare "TDI" defaults here
+        return 'TDI ON PROGRESS'          # bare "TDI" defaults here
 
     # ── Quote / Delivery  ──
     if 'READY TO QUOTE' in status or 'READY FOR QUOTE' in status:
@@ -317,7 +317,7 @@ def admin():
 
         # ── Fixed 7-status list shown in dashboard & filter ──
         status_list = [
-            "TDI IN PROGRESS",
+            "TDI ON PROGRESS",
             "READY TO QUOTE",
             "OV TDI",
             "WARRANTY REPAIR",
@@ -655,7 +655,7 @@ def export_excel_data():
             "OV REPAIR":                   {"bg": "9333EA", "fg": "FFFFFF"},
             "OV TDI":                      {"bg": "7C3AED", "fg": "FFFFFF"},
             "WARRANTY REPAIR":             {"bg": "0369A1", "fg": "FFFFFF"},
-            "TDI IN PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},
+            "TDI ON PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},
             "TDI TO REVIEW":               {"bg": "06B6D4", "fg": "1E293B"},
             "TDI READY TO QUOTE":          {"bg": "67E8F9", "fg": "1E293B"},
             "READY TO QUOTE":              {"bg": "FBBF24", "fg": "1E293B"},
