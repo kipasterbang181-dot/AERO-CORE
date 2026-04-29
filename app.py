@@ -58,6 +58,7 @@ class RepairLog(db.Model):
     defect        = db.Column(db.Text)
     status_type   = db.Column(db.String(100))
     pic           = db.Column(db.String(255))
+    aircraft_type = db.Column(db.String(100), default='')
     is_warranty   = db.Column(db.Boolean,  default=False)
     created_at    = db.Column(db.DateTime, default=datetime.now)
     last_updated  = db.Column(db.DateTime, default=datetime.now)
@@ -76,6 +77,14 @@ with app.app_context():
     try:
         db.create_all()
         print(">>> Sambungan Database Berjaya: Jadual telah disemak/dicipta.")
+        # Auto-add aircraft_type column if it doesn't exist yet
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text("ALTER TABLE repair_log ADD COLUMN IF NOT EXISTS aircraft_type VARCHAR(100) DEFAULT ''"))
+                conn.commit()
+                print(">>> aircraft_type column ensured.")
+        except Exception as col_err:
+            print(f">>> aircraft_type column note: {col_err}")
     except Exception as e:
         print(f">>> Ralat Sambungan Awal Database: {e}")
 
@@ -459,12 +468,13 @@ def edit(id):
 
     if request.method == 'POST':
         try:
-            l.peralatan = request.form.get('peralatan', '').upper()
-            l.pn        = request.form.get('pn', '').upper()
-            l.sn        = request.form.get('sn', '').upper()
-            l.drn       = request.form.get('drn', '').upper()
-            l.pic       = request.form.get('pic', '').upper()
-            l.defect    = request.form.get('defect', '').upper()
+            l.peralatan    = request.form.get('peralatan', '').upper()
+            l.pn           = request.form.get('pn', '').upper()
+            l.sn           = request.form.get('sn', '').upper()
+            l.drn          = request.form.get('drn', '').upper()
+            l.pic          = request.form.get('pic', '').upper()
+            l.defect       = request.form.get('defect', '').upper()
+            l.aircraft_type = request.form.get('aircraft_type', '').upper().strip()
 
             new_status = request.form.get('status') or request.form.get('status_type')
             if new_status:
@@ -920,15 +930,13 @@ def normalize_existing_statuses():
 
 
 # ==============================================================================
-# PUBLIC DASHBOARD — No login required, always live data
+# PUBLIC DASHBOARD — No login required
 # ==============================================================================
-
 @app.route('/dashboard')
 def public_dashboard():
     try:
         from collections import Counter
         logs = RepairLog.query.all()
-
         total  = len(logs)
         sc_map = Counter((l.status_type or 'UNKNOWN').upper().strip() for l in logs)
 
@@ -939,17 +947,22 @@ def public_dashboard():
         rtu         = sc_map.get('RETURN TO AEROTREE', 0) + sc_map.get('RETURN TO PUTD', 0) + sc_map.get('RETURN UNSERVICEABLE', 0)
         rtq         = sc_map.get('READY TO QUOTE', 0) + sc_map.get('QUOTE SUBMITTED', 0)
 
-        aircraft_types = sorted({(l.aircraft_type or '').upper().strip() for l in logs if (l.aircraft_type or '').strip()})
+        # Safe aircraft_type access — handles missing column gracefully
+        aircraft_types = []
         aircraft_stats = {}
-        for at in aircraft_types:
-            at_logs = [l for l in logs if (l.aircraft_type or '').upper().strip() == at]
-            at_map  = Counter((l.status_type or '').upper().strip() for l in at_logs)
-            aircraft_stats[at] = {
-                'total':       len(at_logs),
-                'delivered':   at_map.get('SERVICEABLE', 0) + at_map.get('READY TO DELIVERED', 0),
-                'outstanding': at_map.get('TDI ON PROGRESS', 0) + at_map.get('OV TDI', 0),
-                'warranty':    at_map.get('WARRANTY REPAIR', 0),
-            }
+        try:
+            aircraft_types = sorted({(l.aircraft_type or '').upper().strip() for l in logs if (l.aircraft_type or '').strip()})
+            for at in aircraft_types:
+                at_logs = [l for l in logs if (l.aircraft_type or '').upper().strip() == at]
+                at_map  = Counter((l.status_type or '').upper().strip() for l in at_logs)
+                aircraft_stats[at] = {
+                    'total':       len(at_logs),
+                    'delivered':   at_map.get('SERVICEABLE', 0) + at_map.get('READY TO DELIVERED', 0),
+                    'outstanding': at_map.get('TDI ON PROGRESS', 0) + at_map.get('OV TDI', 0),
+                    'warranty':    at_map.get('WARRANTY REPAIR', 0),
+                }
+        except AttributeError:
+            pass  # aircraft_type column not yet in DB — skip silently
 
         year_map = {}
         for l in logs:
@@ -977,9 +990,8 @@ def public_dashboard():
 
 
 # ==============================================================================
-# BULK STATUS CHANGE
+# BULK STATUS CHANGE — Admin only
 # ==============================================================================
-
 @app.route('/bulk_status', methods=['POST'])
 def bulk_status():
     if not session.get('admin'):
