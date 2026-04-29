@@ -303,6 +303,21 @@
                 </div>
             </div>
 
+
+            <!-- Aircraft Type -->
+            <div class="group">
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest group-focus-within:text-blue-900">
+                    ✈ Aircraft Type
+                </label>
+                <input type="text"
+                       name="aircraft_type"
+                       id="aircraft_type"
+                       value="{{ item.aircraft_type or '' }}"
+                       class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-800 uppercase focus:border-blue-900 focus:bg-white outline-none transition-all"
+                       placeholder="E.G. EC725, H225, AS365..."
+                       oninput="forceUppercase(this)">
+            </div>
+
             <div class="group">
                 <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest required-mark group-focus-within:text-blue-900">
                     Authorized PIC / JTP

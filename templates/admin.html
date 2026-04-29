@@ -369,17 +369,39 @@
                 <h4 class="text-xs font-black uppercase tracking-[0.2em] mb-4">Database Export</h4>
                 <p class="text-blue-100 text-[11px] font-bold mb-8 leading-relaxed">Download all database records in Excel format (.xlsx) for backup.</p>
                 
-                <button onclick="exportFullDatabase()" class="bg-white text-blue-900 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-cyan-50 transition-all shadow-xl shadow-blue-900/40 transform active:scale-95">
+                <a href="{{ url_for('export_excel_data') }}" class="block bg-white text-blue-900 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-cyan-50 transition-all shadow-xl shadow-blue-900/40 transform active:scale-95 text-center no-underline">
                     Export Full Excel 📥
-                </button>
+                </a>
             </div>
         </div>
 
+        <!-- ── AIRCRAFT TYPE TABS ── -->
+        {% if aircraft_types %}
+        <div class="mb-6 flex flex-wrap gap-3 items-center">
+            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">✈ Aircraft:</span>
+            <a href="{{ url_for('admin') }}" class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border
+                {% if selected_aircraft == 'ALL' %}bg-slate-900 text-white border-slate-900{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}">
+                All
+            </a>
+            {% for at in aircraft_types %}
+            <a href="{{ url_for('admin', aircraft=at) }}" class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border
+                {% if selected_aircraft == at %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-slate-600 border-slate-200 hover:bg-blue-50 hover:border-blue-300{% endif %}">
+                {{ at }}
+            </a>
+            {% endfor %}
+            <a href="{{ url_for('public_dashboard') }}" target="_blank" class="ml-auto px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white border border-emerald-500 hover:bg-emerald-600 transition-all no-underline">
+                📊 Public Dashboard
+            </a>
+        </div>
+        {% else %}
+        <div class="mb-6 flex justify-end">
+            <a href="{{ url_for('public_dashboard') }}" target="_blank" class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white hover:bg-emerald-600 transition-all no-underline">
+                📊 Public Dashboard
+            </a>
+        </div>
+        {% endif %}
+
         <div class="bg-white rounded-[3.5rem] shadow-2xl border border-slate-100 overflow-hidden">
-            
-            <div class="p-10 border-b border-slate-50 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-slate-50/30">
-                <div>
-                    <h2 id="t-console-title" class="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Management Console</h2>
                     <p class="text-slate-500 text-xs font-bold mt-2 uppercase tracking-[0.2em] flex items-center gap-3">
                         <span class="relative flex h-3 w-3">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -402,7 +424,7 @@
 
                     <div class="relative">
                         <select id="statusFilter" onchange="filterTable()" class="bg-white border border-slate-200 text-slate-700 text-xs rounded-3xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 block pl-4 pr-8 p-4 font-bold tracking-wide transition-all shadow-sm outline-none appearance-none cursor-pointer min-w-[200px]">
-                            <option value="ALL">📋 All Active Status</option>
+                            <option value="ALL">📋 All Status</option>
                             <option value="TDI ON PROGRESS">🔵 TDI On Progress</option>
                             <option value="READY TO QUOTE">🟡 Ready To Quote</option>
                             <option value="OV TDI">🟣 OV TDI</option>
@@ -410,6 +432,10 @@
                             <option value="RETURN TO PUTD">🔴 Return To PUTD</option>
                             <option value="RETURN TO AEROTREE">🩷 Return To Aerotree</option>
                             <option value="SERVICEABLE">🟢 Serviceable</option>
+                            <option value="UNDER REPAIR">🔧 Under Repair</option>
+                            <option value="OV REPAIR">🔩 OV Repair</option>
+                            <option value="TDI TO REVIEW">🔎 TDI To Review</option>
+                            <option value="ISOLATED">⚫ Isolated</option>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -424,10 +450,33 @@
                     <button onclick="confirmBulkDelete()" class="bg-rose-50 text-rose-600 px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-rose-100 transition-all border border-rose-100 whitespace-nowrap shadow-sm hover:shadow-md">
                         <span id="t-btn-delete">Delete Selected 🗑️</span>
                     </button>
+
+                    <!-- Bulk Status Change -->
+                    <div class="flex items-center gap-2">
+                        <select id="bulkStatusSelect" class="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-3xl pl-4 pr-8 p-4 font-bold tracking-wide outline-none appearance-none cursor-pointer min-w-[180px]">
+                            <option value="">⚡ Bulk Change Status...</option>
+                            <option value="TDI ON PROGRESS">TDI On Progress</option>
+                            <option value="READY TO QUOTE">Ready To Quote</option>
+                            <option value="OV TDI">OV TDI</option>
+                            <option value="WARRANTY REPAIR">Warranty Repair</option>
+                            <option value="SERVICEABLE">Serviceable</option>
+                            <option value="RETURN TO PUTD">Return To PUTD</option>
+                            <option value="RETURN TO AEROTREE">Return To Aerotree</option>
+                            <option value="UNDER REPAIR">Under Repair</option>
+                            <option value="OV REPAIR">OV Repair</option>
+                            <option value="ISOLATED">Isolated</option>
+                        </select>
+                        <button onclick="confirmBulkStatus()" class="bg-amber-500 text-white px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-amber-600 transition-all whitespace-nowrap shadow-sm">
+                            Apply ✓
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <form id="bulkDeleteForm" action="{{ url_for('bulk_delete') }}" method="POST">
+            <form id="bulkStatusForm" action="{{ url_for('bulk_status') }}" method="POST" style="display:none;">
+                <input type="hidden" name="new_status" id="bulkStatusValue">
+            </form>
                 <div class="overflow-x-auto custom-scrollbar">
                     <table id="mainTable" class="w-full">
                         <thead>
@@ -856,36 +905,46 @@
             });
         });
 
-        // ✅ FIXED: Bulk Delete
+        // ✅ Bulk Delete
         function confirmBulkDelete() {
             const count = document.querySelectorAll('.item-checkbox:checked').length;
-            
-            if (count === 0) {
-                return alert("Please select at least one record to delete.");
-            }
-            
+            if (count === 0) return alert("Please select at least one record to delete.");
             if (confirm(`WARNING: Are you sure you want to permanently delete ${count} record(s)?`)) {
                 document.getElementById('bulkDeleteForm').submit();
             }
         }
 
-        // ✅ FIXED: Filter Table (Combined Search + Status)
-        // Shows ALL statuses — filter by dropdown selection
+        // ✅ Bulk Status Change
+        function confirmBulkStatus() {
+            const count     = document.querySelectorAll('.item-checkbox:checked').length;
+            const newStatus = document.getElementById('bulkStatusSelect').value;
+            if (count === 0) return alert("Please select at least one record first.");
+            if (!newStatus) return alert("Please choose a status to apply.");
+            if (!confirm(`Change status of ${count} record(s) to "${newStatus}"?`)) return;
+
+            // Copy checked IDs into hidden status form
+            const statusForm = document.getElementById('bulkStatusForm');
+            document.getElementById('bulkStatusValue').value = newStatus;
+            // Remove old id inputs
+            statusForm.querySelectorAll('input[name="ids"]').forEach(e => e.remove());
+            document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids'; inp.value = cb.value;
+                statusForm.appendChild(inp);
+            });
+            statusForm.submit();
+        }
+
+        // ✅ Filter Table — shows ALL records, filters by status dropdown + search
         function filterTable() {
             const searchVal = document.getElementById("searchInput").value.toUpperCase();
             const statusVal = document.getElementById("statusFilter").value;
-            const table = document.getElementById("mainTable");
-            const rows = table.querySelectorAll(".table-row");
-            
+            const rows = document.querySelectorAll(".table-row");
             let visibleCount = 0;
-
             rows.forEach(row => {
-                const rowStatus = (row.getAttribute("data-status") || "").toUpperCase();
-                // Status match: ALL shows everything, otherwise match exact status
-                const statusMatch = (statusVal === "ALL" || rowStatus === statusVal.toUpperCase());
-                // Text search across the whole row
-                const textMatch = !searchVal || row.textContent.toUpperCase().includes(searchVal);
-
+                const rowStatus  = (row.getAttribute("data-status") || "").toUpperCase();
+                const statusMatch = statusVal === "ALL" || rowStatus === statusVal;
+                const textMatch   = !searchVal || row.textContent.toUpperCase().includes(searchVal);
                 if (statusMatch && textMatch) {
                     row.style.display = "";
                     visibleCount++;
@@ -893,7 +952,6 @@
                     row.style.display = "none";
                 }
             });
-
             const countEl = document.getElementById("totalCount");
             if (countEl) countEl.textContent = visibleCount;
         }

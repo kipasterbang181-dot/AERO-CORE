@@ -128,12 +128,12 @@ def normalize_status(status_str):
     # ── TDI sub-statuses  ──
     if 'TDI' in status:
         if 'PROGRESS' in status:
-            return 'TDI ON PROGRESS'
+            return 'TDI IN PROGRESS'
         if 'REVIEW' in status:
             return 'TDI TO REVIEW'
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
-        return 'TDI ON PROGRESS'          # bare "TDI" defaults here
+        return 'TDI IN PROGRESS'          # bare "TDI" defaults here
 
     # ── Quote / Delivery  ──
     if 'READY TO QUOTE' in status or 'READY FOR QUOTE' in status:
@@ -317,7 +317,7 @@ def admin():
 
         # ── Fixed 7-status list shown in dashboard & filter ──
         status_list = [
-            "TDI ON PROGRESS",
+            "TDI IN PROGRESS",
             "READY TO QUOTE",
             "OV TDI",
             "WARRANTY REPAIR",
@@ -655,7 +655,7 @@ def export_excel_data():
             "OV REPAIR":                   {"bg": "9333EA", "fg": "FFFFFF"},
             "OV TDI":                      {"bg": "7C3AED", "fg": "FFFFFF"},
             "WARRANTY REPAIR":             {"bg": "0369A1", "fg": "FFFFFF"},
-            "TDI ON PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},
+            "TDI IN PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},
             "TDI TO REVIEW":               {"bg": "06B6D4", "fg": "1E293B"},
             "TDI READY TO QUOTE":          {"bg": "67E8F9", "fg": "1E293B"},
             "READY TO QUOTE":              {"bg": "FBBF24", "fg": "1E293B"},
@@ -914,4 +914,96 @@ def normalize_existing_statuses():
             report += f"  • {change}  ({cnt})\n"
         flash(report, "success")
     except Exception as e:
+        db.session.rollback()        flash("Gagal normalisasi.", "error")
+    return redirect(url_for('admin'))
+
+
+# ==============================================================================
+# PUBLIC DASHBOARD — No login required, always live data
+# ==============================================================================
+
+@app.route('/dashboard')
+def public_dashboard():
+    try:
+        from collections import Counter
+        logs = RepairLog.query.all()
+
+        total  = len(logs)
+        sc_map = Counter((l.status_type or 'UNKNOWN').upper().strip() for l in logs)
+
+        delivered   = sc_map.get('SERVICEABLE', 0) + sc_map.get('READY TO DELIVERED', 0) + sc_map.get('READY TO DELIVERED WARRANTY', 0)
+        outstanding = sc_map.get('TDI ON PROGRESS', 0) + sc_map.get('OV TDI', 0)
+        warranty    = sc_map.get('WARRANTY REPAIR', 0)
+        ov_count    = sc_map.get('OV REPAIR', 0) + sc_map.get('OV TDI', 0)
+        rtu         = sc_map.get('RETURN TO AEROTREE', 0) + sc_map.get('RETURN TO PUTD', 0) + sc_map.get('RETURN UNSERVICEABLE', 0)
+        rtq         = sc_map.get('READY TO QUOTE', 0) + sc_map.get('QUOTE SUBMITTED', 0)
+
+        # Aircraft breakdown
+        aircraft_types = sorted({(l.aircraft_type or '').upper().strip() for l in logs if (l.aircraft_type or '').strip()})
+        aircraft_stats = {}
+        for at in aircraft_types:
+            at_logs = [l for l in logs if (l.aircraft_type or '').upper().strip() == at]
+            at_map  = Counter((l.status_type or '').upper().strip() for l in at_logs)
+            aircraft_stats[at] = {
+                'total':       len(at_logs),
+                'delivered':   at_map.get('SERVICEABLE', 0) + at_map.get('READY TO DELIVERED', 0),
+                'outstanding': at_map.get('TDI ON PROGRESS', 0) + at_map.get('OV TDI', 0),
+                'warranty':    at_map.get('WARRANTY REPAIR', 0),
+            }
+
+        # Year breakdown
+        year_map = {}
+        for l in logs:
+            yr = l.date_in.year if l.date_in else None
+            if yr:
+                year_map[yr] = year_map.get(yr, 0) + 1
+
+        return render_template('dashboard.html',
+                               total=total,
+                               delivered=delivered,
+                               outstanding=outstanding,
+                               warranty=warranty,
+                               ov_count=ov_count,
+                               rtu=rtu,
+                               rtq=rtq,
+                               aircraft_types=aircraft_types,
+                               aircraft_stats=aircraft_stats,
+                               year_map=dict(sorted(year_map.items())),
+                               sc_map=dict(sc_map),
+                               last_updated=datetime.now().strftime('%d %b %Y  %H:%M'))
+    except Exception as e:
+        logger.error(f"Dashboard Error: {e}")
+        return f"<h3>Dashboard Error</h3><p>{e}</p><pre>{traceback.format_exc()}</pre>", 500
+
+
+# ==============================================================================
+# BULK STATUS CHANGE — Admin only
+# ==============================================================================
+
+@app.route('/bulk_status', methods=['POST'])
+def bulk_status():
+    if not session.get('admin'):
+        return redirect(url_for('login', next=request.path))
+    selected_ids = request.form.getlist('ids')
+    new_status   = request.form.get('new_status', '').strip()
+    if not selected_ids or not new_status:
+        flash("Sila pilih rekod dan status baru.", "warning")
+        return redirect(url_for('admin'))
+    try:
+        ids_int = [int(i) for i in selected_ids]
+        to_update = RepairLog.query.filter(RepairLog.id.in_(ids_int)).all()
+        norm = normalize_status(new_status)
+        for l in to_update:
+            l.status_type  = norm
+            l.last_updated = datetime.now()
+        db.session.commit()
+        flash(f"✅ {len(to_update)} rekod dikemaskini kepada '{norm}'.", "success")
+    except Exception as e:
         db.session.rollback()
+        logger.error(f"Bulk Status Error: {e}")
+        flash("Ralat semasa kemaskini status.", "error")
+    return redirect(url_for('admin'))
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
