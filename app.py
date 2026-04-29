@@ -914,7 +914,8 @@ def normalize_existing_statuses():
             report += f"  • {change}  ({cnt})\n"
         flash(report, "success")
     except Exception as e:
-        db.session.rollback()        flash("Gagal normalisasi.", "error")
+        db.session.rollback()
+        flash("Gagal normalisasi.", "error")
     return redirect(url_for('admin'))
 
 
@@ -938,7 +939,6 @@ def public_dashboard():
         rtu         = sc_map.get('RETURN TO AEROTREE', 0) + sc_map.get('RETURN TO PUTD', 0) + sc_map.get('RETURN UNSERVICEABLE', 0)
         rtq         = sc_map.get('READY TO QUOTE', 0) + sc_map.get('QUOTE SUBMITTED', 0)
 
-        # Aircraft breakdown
         aircraft_types = sorted({(l.aircraft_type or '').upper().strip() for l in logs if (l.aircraft_type or '').strip()})
         aircraft_stats = {}
         for at in aircraft_types:
@@ -951,7 +951,6 @@ def public_dashboard():
                 'warranty':    at_map.get('WARRANTY REPAIR', 0),
             }
 
-        # Year breakdown
         year_map = {}
         for l in logs:
             yr = l.date_in.year if l.date_in else None
@@ -973,11 +972,12 @@ def public_dashboard():
                                last_updated=datetime.now().strftime('%d %b %Y  %H:%M'))
     except Exception as e:
         logger.error(f"Dashboard Error: {e}")
+        import traceback
         return f"<h3>Dashboard Error</h3><p>{e}</p><pre>{traceback.format_exc()}</pre>", 500
 
 
 # ==============================================================================
-# BULK STATUS CHANGE — Admin only
+# BULK STATUS CHANGE
 # ==============================================================================
 
 @app.route('/bulk_status', methods=['POST'])
@@ -990,9 +990,9 @@ def bulk_status():
         flash("Sila pilih rekod dan status baru.", "warning")
         return redirect(url_for('admin'))
     try:
-        ids_int = [int(i) for i in selected_ids]
+        ids_int   = [int(i) for i in selected_ids]
         to_update = RepairLog.query.filter(RepairLog.id.in_(ids_int)).all()
-        norm = normalize_status(new_status)
+        norm      = normalize_status(new_status)
         for l in to_update:
             l.status_type  = norm
             l.last_updated = datetime.now()
