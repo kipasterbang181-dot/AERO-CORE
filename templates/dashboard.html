@@ -10,260 +10,444 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Bebas+Neue&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{font-family:'Inter',sans-serif;background:#060e1f;color:white;min-height:100vh;}
-        .bebas{font-family:'Bebas Neue','Arial Black',sans-serif;}
 
-        .hero{background:linear-gradient(135deg,#060e1f 0%,#0d1f3c 60%,#060e1f 100%);position:relative;overflow:hidden;border-bottom:1px solid rgba(59,130,246,.2);}
-        .hero::after{content:'';position:absolute;top:0;right:0;bottom:0;width:260px;background:linear-gradient(180deg,#1a56db 0%,#1d4ed8 50%,#1e40af 100%);clip-path:polygon(35% 0%,100% 0%,100% 100%,0% 100%);}
-        .hero-content{position:relative;z-index:2;}
+        /* ── FIXED ONE-SCREEN LAYOUT ── */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: #060e1f;
+            color: white;
+        }
 
-        @keyframes ping{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.8);opacity:.3}}
-        .pulse-dot{animation:ping 1.8s ease-in-out infinite;}
+        .bebas { font-family: 'Bebas Neue','Arial Black', sans-serif; }
 
-        .card-big{border-radius:20px;padding:28px 32px 22px;position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s;cursor:default;}
-        .card-big:hover{transform:translateY(-4px);}
-        .card-big .lbl{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.85;margin-bottom:6px;}
-        .card-big .num{font-family:'Bebas Neue',sans-serif;font-size:76px;line-height:1;letter-spacing:-.02em;}
-        .card-big .sub{font-size:9px;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.12em;margin-top:6px;}
+        /* Full-screen flex shell */
+        #shell {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
 
-        .card-mini{border-radius:18px;padding:22px 24px 18px;transition:transform .18s;}
-        .card-mini:hover{transform:translateY(-3px);}
-        .card-mini .lbl{font-size:9px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;opacity:.85;margin-bottom:4px;}
-        .card-mini .num{font-family:'Bebas Neue',sans-serif;font-size:58px;line-height:1;}
+        /* ── HERO STRIP ── */
+        #hero {
+            flex-shrink: 0;
+            background: linear-gradient(135deg,#060e1f 0%,#0d1f3c 60%,#060e1f 100%);
+            border-bottom: 1px solid rgba(59,130,246,.2);
+            position: relative;
+            overflow: hidden;
+            padding: 14px 32px;
+        }
+        #hero::after {
+            content:'';
+            position:absolute;top:0;right:0;bottom:0;width:180px;
+            background:linear-gradient(180deg,#1a56db 0%,#1d4ed8 50%,#1e40af 100%);
+            clip-path:polygon(40% 0%,100% 0%,100% 100%,0% 100%);
+        }
+        .hero-inner { position:relative;z-index:2; display:flex; align-items:center; justify-content:space-between; gap:16px; }
 
-        .glass{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;}
+        /* Brand */
+        .brand-row { display:flex; align-items:flex-end; gap:8px; }
+        .g7-big { font-family:'Bebas Neue',sans-serif; font-size:44px; line-height:1; letter-spacing:-.03em; }
+        .g7-sub { display:flex; flex-direction:column; line-height:1.1; padding-bottom:2px; }
+        .g7-sub span { font-family:'Bebas Neue',sans-serif; font-size:18px; color:#60a5fa; line-height:1; }
+        .tagline { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:.06em; }
+        .subline { font-size:11px; font-weight:700; color:#93c5fd; letter-spacing:.18em; text-transform:uppercase; }
 
-        @keyframes growBar{from{width:0}to{width:var(--w)}}
-        .bar-fill{height:100%;border-radius:6px;width:var(--w);animation:growBar .9s cubic-bezier(.4,0,.2,1) forwards;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;}
+        /* Right badges */
+        .badge-row { display:flex; align-items:center; gap:10px; }
+        .glass { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:12px; }
+        .badge-live { display:flex; align-items:center; gap:8px; padding:7px 14px; }
+        .badge-time { padding:6px 14px; text-align:center; }
+        @keyframes ping { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.8);opacity:.3} }
+        .pulse-dot { animation:ping 1.8s ease-in-out infinite; }
 
-        .status-chip{border-radius:14px;padding:14px 16px;border-left:4px solid var(--c);background:rgba(255,255,255,.04);border-top:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);transition:transform .15s;}
-        .status-chip:hover{transform:translateY(-2px);}
+        /* ── AIRCRAFT TABS ── */
+        #ac-tabs {
+            flex-shrink: 0;
+            background: rgba(0,0,0,.35);
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            padding: 8px 32px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+        }
+        #ac-tabs::-webkit-scrollbar { height: 3px; }
+        #ac-tabs::-webkit-scrollbar-track { background: transparent; }
+        #ac-tabs::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+        .ac-tab {
+            flex-shrink: 0;
+            padding: 5px 16px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,.12);
+            background: transparent;
+            color: rgba(255,255,255,.45);
+            transition: all .18s;
+        }
+        .ac-tab:hover { background: rgba(255,255,255,.08); color:white; }
+        .ac-tab.active { background: #1d4ed8; border-color: #3b82f6; color: white; box-shadow: 0 0 14px rgba(59,130,246,.4); }
+        .tab-label { font-size:9px; color:rgba(255,255,255,.3); font-weight:700; text-transform:uppercase; letter-spacing:.15em; white-space:nowrap; }
 
-        .ac-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:24px;transition:all .18s;}
-        .ac-card:hover{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.35);}
-        .progress-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px;}
-        .progress-fill{height:100%;border-radius:3px;transition:width 1s;}
+        /* ── SCROLLABLE CONTENT BODY ── */
+        #body {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px 32px 20px;
+        }
+        #body::-webkit-scrollbar { width: 5px; }
+        #body::-webkit-scrollbar-track { background: transparent; }
+        #body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius:3px; }
 
-        .ornament{color:rgba(255,255,255,.12);letter-spacing:10px;font-size:18px;}
-        #countdown{font-variant-numeric:tabular-nums;}
+        /* ── KPI CARDS ── */
+        .kpi-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:14px; }
+
+        .kpi {
+            border-radius:14px;
+            padding:12px 14px 10px;
+            position:relative; overflow:hidden;
+        }
+        .kpi .lbl { font-size:8px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; opacity:.85; margin-bottom:3px; }
+        .kpi .num { font-family:'Bebas Neue',sans-serif; font-size:48px; line-height:1; letter-spacing:-.02em; }
+        .kpi .sub { font-size:8px; font-weight:700; opacity:.45; text-transform:uppercase; letter-spacing:.1em; margin-top:3px; }
+
+        /* ── AIRCRAFT CARDS SECTION ── */
+        .section-hdr {
+            display:flex; align-items:center; gap:8px;
+            font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.18em;
+            margin-bottom:10px; color:rgba(255,255,255,.6);
+        }
+        .section-hdr-bar { width:3px; height:14px; border-radius:2px; display:inline-block; }
+
+        .ac-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-bottom:14px; }
+        .ac-card {
+            background:rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.09);
+            border-radius:14px;
+            padding:14px;
+            transition:all .18s;
+        }
+        .ac-card:hover { background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.35); }
+        .progress-bar { height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; margin-top:5px; }
+        .progress-fill { height:100%; border-radius:2px; }
+
+        /* ── YEAR BARS ── */
+        .year-grid { display:flex; flex-direction:column; gap:7px; margin-bottom:14px; }
+        .year-row { display:flex; align-items:center; gap:12px; }
+        @keyframes growBar { from{width:0} to{width:var(--w)} }
+        .bar-fill {
+            height:100%; border-radius:5px;
+            width:var(--w);
+            animation:growBar .9s cubic-bezier(.4,0,.2,1) forwards;
+            display:flex; align-items:center; justify-content:flex-end; padding-right:10px;
+        }
+
+        /* ── STATUS GRID ── */
+        .status-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+        .status-chip {
+            border-radius:10px; padding:10px 12px;
+            border-left:3px solid var(--c);
+            background:rgba(255,255,255,.03);
+            border-top:1px solid rgba(255,255,255,.05);
+            border-right:1px solid rgba(255,255,255,.05);
+            border-bottom:1px solid rgba(255,255,255,.05);
+            transition:transform .15s;
+        }
+        .status-chip:hover { transform:translateY(-2px); }
+
+        /* ── FOOTER ── */
+        #footer {
+            flex-shrink:0;
+            border-top:1px solid rgba(255,255,255,.06);
+            padding:8px 32px;
+            text-align:center;
+            font-size:8px;
+            font-weight:700;
+            color:rgba(255,255,255,.15);
+            text-transform:uppercase;
+            letter-spacing:.15em;
+            background:rgba(0,0,0,.2);
+        }
+        #footer a { color:rgba(255,255,255,.2); text-decoration:none; transition:color .2s; }
+        #footer a:hover { color:#60a5fa; }
+
+        /* panel switch */
+        .ac-panel { display:none; }
+        .ac-panel.active { display:block; }
+
+        #countdown { font-variant-numeric:tabular-nums; }
     </style>
 </head>
 <body>
+<div id="shell">
 
-<!-- ════════ HERO ════════ -->
-<div class="hero py-10 px-6 md:px-14">
-    <div class="hero-content max-w-6xl mx-auto">
-        <div class="flex items-start justify-between flex-wrap gap-6">
-
-            <!-- Brand -->
-            <div>
-                <div class="flex items-end gap-2 mb-4">
-                    <span class="bebas text-6xl text-white leading-none" style="letter-spacing:-.03em">G7</span>
-                    <div class="flex flex-col leading-tight pb-1">
-                        <span class="bebas text-2xl text-blue-400 leading-none">AERO</span>
-                        <span class="bebas text-2xl text-blue-400 leading-none">SPACE</span>
+    <!-- ════ HERO STRIP ════ -->
+    <div id="hero">
+        <div class="hero-inner">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <div class="brand-row">
+                    <span class="g7-big">G7</span>
+                    <div class="g7-sub">
+                        <span>AERO</span>
+                        <span>SPACE</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;padding-left:12px;border-left:1px solid rgba(255,255,255,.15);margin-left:4px;">
+                        <span class="tagline">COMPONENT</span>
+                        <span class="subline">Avionics
+                            {% set yrs = year_map.keys()|list %}{% if yrs %} {{ yrs|min }}–{{ yrs|max }}{% endif %}
+                        </span>
                     </div>
                 </div>
-                <div class="bebas text-5xl md:text-6xl text-white" style="letter-spacing:.06em">COMPONENT</div>
-                <div class="text-lg md:text-2xl font-bold text-blue-300 tracking-[.22em] uppercase mt-1">
-                    AVIONICS
-                    {% set yrs = year_map.keys()|list %}{% if yrs %} {{ yrs|min }} – {{ yrs|max }}{% endif %}
-                </div>
-                <div class="ornament text-center mt-5">❧ ✦ ❧</div>
             </div>
 
-            <!-- Right panel -->
-            <div class="flex flex-col items-end gap-3">
-                <div class="text-8xl hidden md:block" style="filter:drop-shadow(0 0 24px rgba(59,130,246,.5))">🚁</div>
+            <div class="badge-row">
+                <!-- Copy Link -->
+                <div class="glass" style="padding:7px 12px;max-width:200px;cursor:pointer;" onclick="copyLink()" title="Click to copy">
+                    <div style="font-size:7px;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.15em;margin-bottom:3px;">🔗 Share</div>
+                    <div id="shareLink" style="font-size:9px;color:#93c5fd;font-weight:700;word-break:break-all;">{{ request.host_url }}dashboard</div>
+                    <div id="copyMsg" style="font-size:8px;color:#34d399;font-weight:700;display:none;margin-top:2px;">✓ Copied!</div>
+                </div>
 
                 <!-- Live badge -->
-                <div class="glass flex items-center gap-3 px-5 py-3 rounded-2xl">
-                    <span class="relative flex h-3 w-3">
+                <div class="glass badge-live">
+                    <span class="relative flex h-2.5 w-2.5">
                         <span class="pulse-dot absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-                        <span class="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+                        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
                     </span>
                     <div>
-                        <div style="font-size:9px;font-weight:800;color:#34d399;text-transform:uppercase;letter-spacing:.15em;">Live Data</div>
-                        <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;">Updated: {{ last_updated }}</div>
+                        <div style="font-size:8px;font-weight:800;color:#34d399;text-transform:uppercase;letter-spacing:.15em;">Live</div>
+                        <div style="font-size:8px;color:rgba(255,255,255,.35);font-weight:600;">{{ last_updated }}</div>
                     </div>
                 </div>
 
                 <!-- Countdown -->
-                <div class="glass px-5 py-3 rounded-2xl text-center">
-                    <div style="font-size:8px;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.15em;margin-bottom:3px;">Next refresh in</div>
-                    <div id="countdown" style="font-size:22px;font-weight:900;color:#60a5fa;font-family:'Bebas Neue',sans-serif;">5:00</div>
-                </div>
-
-                <!-- Shareable link box -->
-                <div class="glass px-5 py-3 rounded-2xl" style="max-width:270px;">
-                    <div style="font-size:8px;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.15em;margin-bottom:5px;">🔗 Share this link</div>
-                    <div id="shareLink" onclick="copyLink()" title="Click to copy"
-                         style="font-size:10px;color:#93c5fd;font-weight:700;word-break:break-all;cursor:pointer;padding:6px 10px;background:rgba(59,130,246,.15);border-radius:8px;border:1px solid rgba(59,130,246,.3);">
-                        {{ request.host_url }}dashboard
-                    </div>
-                    <div id="copyMsg" style="font-size:8px;color:#34d399;font-weight:700;margin-top:4px;display:none;">✓ Link copied to clipboard!</div>
+                <div class="glass badge-time">
+                    <div style="font-size:7px;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1px;">Refresh</div>
+                    <div id="countdown" style="font-size:20px;font-weight:900;color:#60a5fa;font-family:'Bebas Neue',sans-serif;">5:00</div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- ════════ STATS ════════ -->
-<div class="max-w-6xl mx-auto px-6 md:px-10 py-10">
-
-    <!-- Big 3 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
-        <div class="card-big" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);box-shadow:0 10px 40px rgba(29,78,216,.45);">
-            <div class="lbl">Total</div>
-            <div class="num">{{ total }}</div>
-            <div class="sub">All Records in System</div>
-        </div>
-        <div class="card-big" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 10px 40px rgba(22,163,74,.4);">
-            <div class="lbl">Delivered</div>
-            <div class="num">{{ delivered }}</div>
-            <div class="sub">Serviceable + Released</div>
-        </div>
-        <div class="card-big" style="background:linear-gradient(135deg,#d97706,#b45309);box-shadow:0 10px 40px rgba(217,119,6,.4);">
-            <div class="lbl">Outstanding</div>
-            <div class="num">{{ outstanding }}</div>
-            <div class="sub">TDI On Progress + OV</div>
-        </div>
+    <!-- ════ AIRCRAFT TABS ════ -->
+    <div id="ac-tabs">
+        <span class="tab-label">✈ Aircraft:</span>
+        <button class="ac-tab active" onclick="switchTab('ALL',this)">All</button>
+        {% for at in aircraft_stats.keys() %}
+        <button class="ac-tab" onclick="switchTab('{{ at }}',this)">{{ at }}</button>
+        {% endfor %}
+        <a href="/login" style="margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-decoration:none;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;" onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='rgba(255,255,255,.25)'">Admin →</a>
     </div>
 
-    <!-- Mini 4 -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-        <div class="card-mini" style="background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 6px 28px rgba(220,38,38,.4);">
-            <div class="lbl">Warranty</div>
-            <div class="num">{{ warranty }}</div>
-        </div>
-        <div class="card-mini" style="background:linear-gradient(135deg,#1e3a5f,#1e40af);color:#fbbf24;box-shadow:0 6px 28px rgba(30,58,95,.5);">
-            <div class="lbl">OV</div>
-            <div class="num">{{ ov_count }}</div>
-        </div>
-        <div class="card-mini" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);box-shadow:0 6px 28px rgba(30,58,138,.4);">
-            <div class="lbl">RTU</div>
-            <div class="num">{{ rtu }}</div>
-        </div>
-        <div class="card-mini" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:#fef3c7;box-shadow:0 6px 28px rgba(8,145,178,.4);">
-            <div class="lbl">RTQ</div>
-            <div class="num">{{ rtq }}</div>
-        </div>
-    </div>
+    <!-- ════ SCROLLABLE BODY ════ -->
+    <div id="body">
 
-    <!-- Aircraft breakdown -->
-    {% if aircraft_stats %}
-    <div class="mb-12">
-        <h3 class="font-black text-sm uppercase tracking-widest mb-5 flex items-center gap-3">
-            <span style="width:3px;height:20px;background:#3b82f6;border-radius:2px;display:inline-block;"></span>
-            By Aircraft Type
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for at, s in aircraft_stats.items() %}
-            {% set pct = ((s.delivered / s.total * 100)|int) if s.total > 0 else 0 %}
-            <div class="ac-card">
-                <div class="flex justify-between items-start mb-5">
-                    <div>
-                        <div style="font-size:8px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.15em;margin-bottom:3px;">Aircraft</div>
-                        <div style="font-size:22px;font-weight:900;letter-spacing:-.02em;">{{ at }}</div>
+        <!-- KPI row — ALL panel -->
+        <div id="panel-ALL" class="ac-panel active">
+            <!-- Big 7 KPI cards -->
+            <div class="kpi-grid">
+                <div class="kpi" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);box-shadow:0 8px 28px rgba(29,78,216,.4);grid-column:span 1;">
+                    <div class="lbl">Total</div>
+                    <div class="num">{{ total }}</div>
+                    <div class="sub">All Records</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 8px 28px rgba(22,163,74,.35);">
+                    <div class="lbl">Delivered</div>
+                    <div class="num">{{ delivered }}</div>
+                    <div class="sub">Svc + Released</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#d97706,#b45309);box-shadow:0 8px 28px rgba(217,119,6,.35);">
+                    <div class="lbl">Outstanding</div>
+                    <div class="num">{{ outstanding }}</div>
+                    <div class="sub">TDI On Progress + OV</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 8px 28px rgba(220,38,38,.35);">
+                    <div class="lbl">Warranty</div>
+                    <div class="num">{{ warranty }}</div>
+                    <div class="sub">Under Warranty</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#1e3a5f,#1e40af);color:#fbbf24;box-shadow:0 8px 28px rgba(30,58,95,.45);">
+                    <div class="lbl">OV</div>
+                    <div class="num">{{ ov_count }}</div>
+                    <div class="sub">OV Units</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);box-shadow:0 8px 28px rgba(30,58,138,.35);">
+                    <div class="lbl">RTU</div>
+                    <div class="num">{{ rtu }}</div>
+                    <div class="sub">Ready To Use</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:#fef3c7;box-shadow:0 8px 28px rgba(8,145,178,.35);">
+                    <div class="lbl">RTQ</div>
+                    <div class="num">{{ rtq }}</div>
+                    <div class="sub">Ready To Quote</div>
+                </div>
+            </div>
+
+            <!-- Aircraft cards -->
+            {% if aircraft_stats %}
+            <div class="section-hdr">
+                <span class="section-hdr-bar" style="background:#3b82f6;"></span>
+                By Aircraft Type
+            </div>
+            <div class="ac-grid">
+                {% for at, s in aircraft_stats.items() %}
+                {% set pct = ((s.delivered / s.total * 100)|int) if s.total > 0 else 0 %}
+                <div class="ac-card" style="cursor:pointer;" onclick="switchTabByName('{{ at }}')">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                        <div>
+                            <div style="font-size:7px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.15em;margin-bottom:2px;">Aircraft</div>
+                            <div style="font-size:17px;font-weight:900;letter-spacing:-.02em;">{{ at }}</div>
+                        </div>
+                        <div style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.4);border-radius:8px;padding:5px 10px;text-align:center;">
+                            <div style="font-size:22px;font-weight:900;color:#60a5fa;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.total }}</div>
+                            <div style="font-size:6px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;">Total</div>
+                        </div>
                     </div>
-                    <div style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:8px 14px;text-align:center;">
-                        <div style="font-size:28px;font-weight:900;color:#60a5fa;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.total }}</div>
-                        <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;">Total</div>
+                    <div style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:7px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">
+                            <span>Delivery rate</span><span style="color:#34d399;">{{ pct }}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:{{ pct }}%;background:linear-gradient(90deg,#10b981,#34d399);transition:width 1s;"></div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+                        <div style="text-align:center;background:rgba(22,163,74,.15);border-radius:7px;padding:6px 2px;">
+                            <div style="font-size:18px;font-weight:900;color:#34d399;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.delivered }}</div>
+                            <div style="font-size:6px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:1px;">Delivered</div>
+                        </div>
+                        <div style="text-align:center;background:rgba(217,119,6,.15);border-radius:7px;padding:6px 2px;">
+                            <div style="font-size:18px;font-weight:900;color:#fbbf24;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.outstanding }}</div>
+                            <div style="font-size:6px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:1px;">Active</div>
+                        </div>
+                        <div style="text-align:center;background:rgba(220,38,38,.15);border-radius:7px;padding:6px 2px;">
+                            <div style="font-size:18px;font-weight:900;color:#fb7185;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.warranty }}</div>
+                            <div style="font-size:6px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:1px;">Warranty</div>
+                        </div>
                     </div>
                 </div>
-                <div style="margin-bottom:12px;">
-                    <div style="display:flex;justify-content:space-between;font-size:8px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
-                        <span>Delivery rate</span><span style="color:#34d399;">{{ pct }}%</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Year bars + Status in 2-col -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;">
+                {% if year_map %}
+                <div>
+                    <div class="section-hdr">
+                        <span class="section-hdr-bar" style="background:#8b5cf6;"></span>
+                        By Year
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width:{{ pct }}%;background:linear-gradient(90deg,#10b981,#34d399);"></div>
+                    {% set max_count = year_map.values()|max %}
+                    {% set yc = ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#f43f5e'] %}
+                    <div class="year-grid">
+                        {% for yr, cnt in year_map.items() %}
+                        {% set pct = ((cnt / max_count * 100)|int) %}
+                        <div class="year-row">
+                            <div style="width:42px;font-size:12px;font-weight:900;color:white;text-align:right;flex-shrink:0;">{{ yr }}</div>
+                            <div style="flex:1;background:rgba(255,255,255,.06);border-radius:6px;height:28px;overflow:hidden;">
+                                <div class="bar-fill" style="--w:{{ pct }}%;background:{{ yc[loop.index0 % 6] }};">
+                                    <span style="font-size:11px;font-weight:900;color:white;white-space:nowrap;">{{ cnt }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    <div style="text-align:center;background:rgba(22,163,74,.15);border-radius:10px;padding:10px 4px;">
-                        <div style="font-size:24px;font-weight:900;color:#34d399;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.delivered }}</div>
-                        <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;margin-top:2px;">Delivered</div>
+                {% endif %}
+
+                {% if sc_map %}
+                <div>
+                    <div class="section-hdr">
+                        <span class="section-hdr-bar" style="background:#10b981;"></span>
+                        Status Breakdown
                     </div>
-                    <div style="text-align:center;background:rgba(217,119,6,.15);border-radius:10px;padding:10px 4px;">
-                        <div style="font-size:24px;font-weight:900;color:#fbbf24;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.outstanding }}</div>
-                        <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;margin-top:2px;">Active</div>
+                    {% set sc = {
+                        'SERVICEABLE':'#10b981','UNDER REPAIR':'#f59e0b','TDI ON PROGRESS':'#06b6d4',
+                        'TDI TO REVIEW':'#0891b2','TDI READY TO QUOTE':'#67e8f9','WARRANTY REPAIR':'#3b82f6',
+                        'OV TDI':'#7c3aed','OV REPAIR':'#9333ea','RETURN UNSERVICEABLE':'#ef4444',
+                        'RETURN TO AEROTREE':'#be185d','RETURN TO PUTD':'#dc2626','READY TO QUOTE':'#eab308',
+                        'QUOTE SUBMITTED':'#ca8a04','READY TO DELIVERED':'#059669','AWAITING SPARE':'#ea580c',
+                        'SPARE READY':'#84cc16','WAITING LO':'#94a3b8','ISOLATED':'#475569',
+                    } %}
+                    <div class="status-grid">
+                        {% for status, count in sc_map.items()|sort(attribute='1',reverse=True) %}
+                        {% set color = sc.get(status,'#475569') %}
+                        <div class="status-chip" style="--c:{{ color }};">
+                            <div style="font-size:7px;font-weight:800;color:{{ color }};text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{{ status }}</div>
+                            <div style="font-size:30px;font-weight:900;font-family:'Bebas Neue',sans-serif;line-height:1;color:white;">{{ count }}</div>
+                            <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,.25);margin-top:2px;">{{ "%.1f"|format((count / total * 100) if total > 0 else 0) }}% of total</div>
+                        </div>
+                        {% endfor %}
                     </div>
-                    <div style="text-align:center;background:rgba(220,38,38,.15);border-radius:10px;padding:10px 4px;">
-                        <div style="font-size:24px;font-weight:900;color:#fb7185;font-family:'Bebas Neue',sans-serif;line-height:1;">{{ s.warranty }}</div>
-                        <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;margin-top:2px;">Warranty</div>
+                </div>
+                {% endif %}
+            </div>
+        </div><!-- /panel-ALL -->
+
+        <!-- ── PER-AIRCRAFT PANELS ── -->
+        {% for at, s in aircraft_stats.items() %}
+        <div id="panel-{{ at|replace(' ','_') }}" class="ac-panel">
+
+            <!-- Aircraft KPI row -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;">
+                <div class="kpi" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);box-shadow:0 8px 28px rgba(29,78,216,.4);">
+                    <div class="lbl">Total</div>
+                    <div class="num">{{ s.total }}</div>
+                    <div class="sub">{{ at }}</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 8px 28px rgba(22,163,74,.35);">
+                    <div class="lbl">Delivered</div>
+                    <div class="num">{{ s.delivered }}</div>
+                    <div class="sub">Svc + Released</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#d97706,#b45309);box-shadow:0 8px 28px rgba(217,119,6,.35);">
+                    <div class="lbl">Outstanding</div>
+                    <div class="num">{{ s.outstanding }}</div>
+                    <div class="sub">Active</div>
+                </div>
+                <div class="kpi" style="background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 8px 28px rgba(220,38,38,.35);">
+                    <div class="lbl">Warranty</div>
+                    <div class="num">{{ s.warranty }}</div>
+                    <div class="sub">Under Warranty</div>
+                </div>
+                {% set pct = ((s.delivered / s.total * 100)|int) if s.total > 0 else 0 %}
+                <div class="kpi" style="background:linear-gradient(135deg,#0f2d47,#1e3a8a);box-shadow:0 8px 28px rgba(30,58,138,.35);">
+                    <div class="lbl">Delivery Rate</div>
+                    <div class="num" style="color:#34d399;">{{ pct }}%</div>
+                    <div style="height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:6px;">
+                        <div style="height:100%;border-radius:2px;background:#10b981;width:{{ pct }}%;"></div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
 
-    <!-- Year bars -->
-    {% if year_map %}
-    <div class="mb-12">
-        <h3 class="font-black text-sm uppercase tracking-widest mb-5 flex items-center gap-3">
-            <span style="width:3px;height:20px;background:#8b5cf6;border-radius:2px;display:inline-block;"></span>
-            Records By Year
-        </h3>
-        {% set max_count = year_map.values()|max %}
-        {% set yc = ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#f43f5e'] %}
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            {% for yr, cnt in year_map.items() %}
-            {% set pct = ((cnt / max_count * 100)|int) %}
-            <div style="display:flex;align-items:center;gap:16px;">
-                <div style="width:54px;font-size:14px;font-weight:900;color:white;text-align:right;flex-shrink:0;">{{ yr }}</div>
-                <div style="flex:1;background:rgba(255,255,255,.06);border-radius:8px;height:38px;overflow:hidden;">
-                    <div class="bar-fill" style="--w:{{ pct }}%;background:{{ yc[loop.index0 % 6] }};">
-                        <span style="font-size:13px;font-weight:900;color:white;white-space:nowrap;">{{ cnt }}</span>
-                    </div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;text-align:center;">
+                <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.2em;margin-bottom:8px;">✈ {{ at }} — Aircraft Overview</div>
+                <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.5);">
+                    Click on any status card in the <strong style="color:#60a5fa;">All</strong> tab to see full breakdown,<br>
+                    or go to <a href="/admin?aircraft={{ at }}" style="color:#34d399;text-decoration:none;font-weight:900;">Admin Panel → {{ at }}</a> for detailed records.
                 </div>
             </div>
-            {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        {% endfor %}
 
-    <!-- Status grid -->
-    {% if sc_map %}
-    <div class="mb-12">
-        <h3 class="font-black text-sm uppercase tracking-widest mb-5 flex items-center gap-3">
-            <span style="width:3px;height:20px;background:#10b981;border-radius:2px;display:inline-block;"></span>
-            Status Breakdown
-        </h3>
-        {% set sc = {
-            'SERVICEABLE':'#10b981','UNDER REPAIR':'#f59e0b','TDI ON PROGRESS':'#06b6d4',
-            'TDI TO REVIEW':'#0891b2','TDI READY TO QUOTE':'#67e8f9','WARRANTY REPAIR':'#3b82f6',
-            'OV TDI':'#7c3aed','OV REPAIR':'#9333ea','RETURN UNSERVICEABLE':'#ef4444',
-            'RETURN TO AEROTREE':'#be185d','RETURN TO PUTD':'#dc2626','READY TO QUOTE':'#eab308',
-            'QUOTE SUBMITTED':'#ca8a04','READY TO DELIVERED':'#059669','AWAITING SPARE':'#ea580c',
-            'SPARE READY':'#84cc16','WAITING LO':'#94a3b8','ISOLATED':'#475569',
-        } %}
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;">
-            {% for status, count in sc_map.items()|sort(attribute='1',reverse=True) %}
-            {% set color = sc.get(status,'#475569') %}
-            <div class="status-chip" style="--c:{{ color }};">
-                <div style="font-size:8px;font-weight:800;color:{{ color }};text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">{{ status }}</div>
-                <div style="font-size:40px;font-weight:900;font-family:'Bebas Neue',sans-serif;line-height:1;color:white;">{{ count }}</div>
-                <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.3);margin-top:3px;">
-                    {{ "%.1f"|format((count / total * 100) if total > 0 else 0) }}% of total
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+    </div><!-- /body -->
 
-    <!-- Footer -->
-    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:24px;text-align:center;">
-        <p style="font-size:9px;font-weight:700;color:rgba(255,255,255,.18);text-transform:uppercase;letter-spacing:.18em;line-height:2.4;">
-            © 2026 G7 Aerospace Digital Maintenance System &nbsp;·&nbsp; Auto-refreshes every 5 minutes
-            &nbsp;·&nbsp;
-            <a href="/login" style="color:rgba(255,255,255,.25);text-decoration:none;"
-               onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='rgba(255,255,255,.25)'">Admin Login →</a>
-        </p>
+    <!-- ════ FOOTER ════ -->
+    <div id="footer">
+        © 2026 G7 Aerospace Digital Maintenance System &nbsp;·&nbsp; Auto-refreshes every 5 min &nbsp;·&nbsp;
+        <a href="/login">Admin Login →</a>
     </div>
-</div>
+
+</div><!-- /shell -->
 
 <script>
     // ── Copy link ──
@@ -275,16 +459,35 @@
         });
     }
 
-    // ── Countdown to next auto-refresh ──
+    // ── Countdown ──
     let secs = 300;
     const el = document.getElementById('countdown');
     setInterval(() => {
         secs--;
-        if (secs <= 0) { el.textContent = 'Refreshing…'; location.reload(); return; }
+        if (secs <= 0) { el.textContent = '…'; location.reload(); return; }
         const m = Math.floor(secs / 60), s = secs % 60;
         el.textContent = m + ':' + String(s).padStart(2,'0');
         el.style.color = secs <= 30 ? '#f87171' : '#60a5fa';
     }, 1000);
+
+    // ── Tab switching ──
+    function switchTab(id, btn) {
+        document.querySelectorAll('.ac-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.ac-tab').forEach(b => b.classList.remove('active'));
+        const panelId = 'panel-' + id.replace(/ /g,'_');
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
+        if (btn) btn.classList.add('active');
+        // Scroll body to top
+        document.getElementById('body').scrollTop = 0;
+    }
+
+    function switchTabByName(name) {
+        const tabs = document.querySelectorAll('.ac-tab');
+        let targetBtn = null;
+        tabs.forEach(b => { if (b.textContent.trim() === name) targetBtn = b; });
+        switchTab(name, targetBtn);
+    }
 </script>
 </body>
 </html>

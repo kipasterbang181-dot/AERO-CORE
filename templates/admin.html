@@ -471,12 +471,15 @@
                         </button>
                     </div>
                 </div>
-            </div>
+            </div><!-- end controls flex -->
+            </div><!-- end header bar -->
 
-            <form id="bulkDeleteForm" action="{{ url_for('bulk_delete') }}" method="POST">
+            <!-- Hidden bulk status form (separate, outside delete form) -->
             <form id="bulkStatusForm" action="{{ url_for('bulk_status') }}" method="POST" style="display:none;">
                 <input type="hidden" name="new_status" id="bulkStatusValue">
             </form>
+
+            <form id="bulkDeleteForm" action="{{ url_for('bulk_delete') }}" method="POST">
                 <div class="overflow-x-auto custom-scrollbar">
                     <table id="mainTable" class="w-full">
                         <thead>
