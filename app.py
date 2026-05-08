@@ -8,20 +8,10 @@ import qrcode
 import pandas as pd
 import traceback
 import logging
-from zoneinfo import ZoneInfo   # Python 3.9+ — no extra package needed
 
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-
-# ==============================================================================
-# TIMEZONE HELPER — Malaysia Standard Time (UTC+8)
-# ==============================================================================
-MY_TZ = ZoneInfo("Asia/Kuala_Lumpur")
-
-def now_my():
-    """Return current datetime in Malaysia time (UTC+8). Use everywhere instead of datetime.now()."""
-    return datetime.now(MY_TZ).replace(tzinfo=None)  # naive but correct local time
 
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -97,7 +87,7 @@ with app.app_context():
             print(f">>> aircraft_type column note: {col_err}")
 
         # ── AUTO-MIGRATION: Rename "TDI IN PROGRESS" → "TDI ON PROGRESS" ──
-        # Runs every startup — fast no-op if already clean
+        # Runs every startup but is a fast no-op when already clean
         try:
             with db.engine.connect() as conn:
                 result = conn.execute(db.text(
@@ -107,9 +97,9 @@ with app.app_context():
                 conn.commit()
                 fixed = result.rowcount
                 if fixed > 0:
-                    print(f">>> [Migration] Fixed {fixed} records: 'TDI IN PROGRESS' → 'TDI ON PROGRESS'")
+                    print(f">>> [Migration] Fixed {fixed} record(s): 'TDI IN PROGRESS' → 'TDI ON PROGRESS'")
                 else:
-                    print(">>> [Migration] No legacy 'TDI IN PROGRESS' records. ✓")
+                    print(">>> [Migration] No legacy 'TDI IN PROGRESS' records found. ✓")
         except Exception as mig_err:
             print(f">>> [Migration] TDI rename note: {mig_err}")
 
@@ -135,7 +125,6 @@ def normalize_status(status_str):
     Normalize status strings → standard categories.
     Handles typos, case, extra spaces, variant spellings.
     OV TDI and OV REPAIR are kept as their own statuses.
-    ✅ KEY FIX: ALL TDI PROGRESS variants → 'TDI ON PROGRESS' (not 'TDI IN PROGRESS')
     """
     if not status_str:
         return "UNDER REPAIR"
@@ -170,7 +159,7 @@ def normalize_status(status_str):
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
         if 'PROGRESS' in status:
-            # ✅ Covers "TDI IN PROGRESS", "TDI ON PROGRESS", any variant → canonical name
+            # ✅ KEY FIX: "TDI IN PROGRESS", "TDI ON PROGRESS", any variant → canonical "TDI ON PROGRESS"
             return 'TDI ON PROGRESS'
         return 'TDI ON PROGRESS'          # bare "TDI" defaults here
 
@@ -352,16 +341,15 @@ def admin():
         return redirect(url_for('login', next=request.path))
 
     try:
+        logs = RepairLog.query.order_by(RepairLog.id.desc()).all()
+
         # ── Optional aircraft filter from query param ──────────────────────
         selected_aircraft = request.args.get('aircraft', 'ALL').strip().upper()
+        all_logs = logs  # keep full list for stats
 
-        all_logs = RepairLog.query.order_by(RepairLog.id.desc()).all()
-
-        # ── Filtered logs for the records table ───────────────────────────
+        # ── Filter logs for the records table only ──────────────────────────
         if selected_aircraft and selected_aircraft != 'ALL':
             logs = [l for l in all_logs if (l.aircraft_type or '').upper().strip() == selected_aircraft]
-        else:
-            logs = all_logs
 
         # ── Fixed 7-status list shown in dashboard & filter ──
         # ✅ "TDI ON PROGRESS" — corrected from old "TDI IN PROGRESS"
@@ -375,7 +363,7 @@ def admin():
             "SERVICEABLE",
         ]
 
-        # ── Year columns (always over ALL logs) ──
+        # ── Year columns (always based on ALL logs) ──
         years = sorted({l.date_in.year for l in all_logs if l.date_in}) or [now_my().year]
 
         # ── Stats matrix ──
@@ -435,12 +423,12 @@ def incoming():
         d_in = parse_date_input(request.form.get('date_in')) or now_my().date()
 
         new_log = RepairLog(
-            drn           = request.form.get('drn', '').upper(),
-            peralatan     = request.form.get('peralatan', '').upper(),
-            pn            = request.form.get('pn', '').upper(),
-            sn            = request.form.get('sn', '').upper(),
-            date_in       = d_in,
-            defect        = request.form.get('defect', 'N/A').upper(),
+            drn        = request.form.get('drn', '').upper(),
+            peralatan  = request.form.get('peralatan', '').upper(),
+            pn         = request.form.get('pn', '').upper(),
+            sn         = request.form.get('sn', '').upper(),
+            date_in    = d_in,
+            defect     = request.form.get('defect', 'N/A').upper(),
             status_type   = normalize_status(status_val),          # ✅ normalized → TDI ON PROGRESS
             pic           = request.form.get('pic', 'N/A').upper(),
             aircraft_type = request.form.get('aircraft_type', '').upper().strip(),
@@ -513,25 +501,25 @@ def edit(id):
     if not session.get('admin'):
         return redirect(url_for('login', next=request.full_path))
 
-    # ✅ FIX: db.session.get() works in all SQLAlchemy versions; get_or_404 caused 500 on some
+    # ✅ FIX 500 ERROR: db.session.get works in all SQLAlchemy versions; get_or_404 crashed on Render
     l = db.session.get(RepairLog, id)
     if l is None:
         flash(f"Rekod #{id} tidak dijumpai.", "error")
         return redirect(url_for('admin'))
-
     source = request.args.get('from', request.form.get('origin_source', 'admin'))
 
     if request.method == 'POST':
         try:
-            l.peralatan     = request.form.get('peralatan', '').upper()
-            l.pn            = request.form.get('pn', '').upper()
-            l.sn            = request.form.get('sn', '').upper()
-            l.drn           = request.form.get('drn', '').upper()
-            l.pic           = request.form.get('pic', '').upper()
-            l.defect        = request.form.get('defect', '').upper()
+            l.peralatan    = request.form.get('peralatan', '').upper()
+            l.pn           = request.form.get('pn', '').upper()
+            l.sn           = request.form.get('sn', '').upper()
+            l.drn          = request.form.get('drn', '').upper()
+            l.pic          = request.form.get('pic', '').upper()
+            l.defect       = request.form.get('defect', '').upper()
             l.aircraft_type = request.form.get('aircraft_type', '').upper().strip()
 
-            new_status = request.form.get('status') or request.form.get('status_type')
+            # ✅ edit.html sends field name 'status_type'
+            new_status = request.form.get('status_type') or request.form.get('status')
             if new_status:
                 l.status_type = normalize_status(new_status)  # ✅ normalized → TDI ON PROGRESS
 
@@ -739,6 +727,7 @@ def export_excel_data():
             "WARRANTY REPAIR":             {"bg": "0369A1", "fg": "FFFFFF"},
             "TDI ON PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},   # ✅ corrected
             "TDI IN PROGRESS":             {"bg": "0891B2", "fg": "FFFFFF"},   # legacy fallback
+            "RETURN TO PUTD":              {"bg": "991B1B", "fg": "FFFFFF"},
             "TDI TO REVIEW":               {"bg": "06B6D4", "fg": "1E293B"},
             "TDI READY TO QUOTE":          {"bg": "67E8F9", "fg": "1E293B"},
             "READY TO QUOTE":              {"bg": "FBBF24", "fg": "1E293B"},
@@ -750,7 +739,6 @@ def export_excel_data():
             "SPARE READY":                 {"bg": "84CC16", "fg": "1E293B"},
             "ISOLATED":                    {"bg": "64748B", "fg": "FFFFFF"},
             "RETURN TO AEROTREE":          {"bg": "BE185D", "fg": "FFFFFF"},
-            "RETURN TO PUTD":              {"bg": "991B1B", "fg": "FFFFFF"},
         }
         YEAR_ACCENTS = [
             {"hdr_bg": "#1E3A5F", "banner_bg": "#0F2340", "tab": "#3B82F6"},
@@ -1015,8 +1003,8 @@ def public_dashboard():
         sc_map = Counter((l.status_type or 'UNKNOWN').upper().strip() for l in logs)
 
         delivered   = sc_map.get('SERVICEABLE', 0) + sc_map.get('READY TO DELIVERED', 0) + sc_map.get('READY TO DELIVERED WARRANTY', 0)
-        # ✅ "TDI ON PROGRESS" — corrected from old "TDI IN PROGRESS"
-        outstanding = sc_map.get('TDI ON PROGRESS', 0) + sc_map.get('OV TDI', 0)
+        # ✅ Count both old and new name for safety during transition
+        outstanding = (sc_map.get('TDI ON PROGRESS', 0) + sc_map.get('TDI IN PROGRESS', 0) + sc_map.get('OV TDI', 0))
         warranty    = sc_map.get('WARRANTY REPAIR', 0)
         ov_count    = sc_map.get('OV REPAIR', 0) + sc_map.get('OV TDI', 0)
         rtu         = sc_map.get('RETURN TO AEROTREE', 0) + sc_map.get('RETURN TO PUTD', 0) + sc_map.get('RETURN UNSERVICEABLE', 0)
@@ -1033,8 +1021,7 @@ def public_dashboard():
                 aircraft_stats[at] = {
                     'total':       len(at_logs),
                     'delivered':   at_map.get('SERVICEABLE', 0) + at_map.get('READY TO DELIVERED', 0),
-                    # ✅ "TDI ON PROGRESS"
-                    'outstanding': at_map.get('TDI ON PROGRESS', 0) + at_map.get('OV TDI', 0),
+                    'outstanding': (at_map.get('TDI ON PROGRESS', 0) + at_map.get('TDI IN PROGRESS', 0) + at_map.get('OV TDI', 0)),
                     'warranty':    at_map.get('WARRANTY REPAIR', 0),
                 }
         except AttributeError:
@@ -1093,6 +1080,7 @@ def bulk_status():
     return redirect(url_for('admin'))
 
 
+
 # ==============================================================================
 # BULK AIRCRAFT TYPE CHANGE — Admin only
 # ==============================================================================
@@ -1100,7 +1088,8 @@ def bulk_status():
 def bulk_aircraft():
     """
     Tukar aircraft_type untuk multiple records sekaligus.
-    Form fields: ids[] + new_aircraft_type
+    Dipanggil dari bulk action bar dalam admin.html.
+    Form fields required: ids[] + new_aircraft_type
     """
     if not session.get('admin'):
         return redirect(url_for('login', next=request.path))
@@ -1109,11 +1098,11 @@ def bulk_aircraft():
     new_aircraft_type = request.form.get('new_aircraft_type', '').strip().upper()
 
     if not selected_ids:
-        flash("Tiada rekod dipilih.", "warning")
+        flash("Tiada rekod dipilih untuk dikemaskini.", "warning")
         return redirect(url_for('admin'))
 
     if not new_aircraft_type:
-        flash("Sila masukkan jenis kapal terbang.", "warning")
+        flash("Sila masukkan jenis kapal terbang (Aircraft Type).", "warning")
         return redirect(url_for('admin'))
 
     try:
@@ -1133,17 +1122,17 @@ def bulk_aircraft():
 
 
 # ==============================================================================
-# API — GET AIRCRAFT TYPES (for dropdowns)
+# API — GET ALL UNIQUE AIRCRAFT TYPES (for dynamic dropdowns)
 # ==============================================================================
 @app.route('/api/aircraft_types')
 def get_aircraft_types():
     """
-    Returns JSON list of all unique aircraft_type values currently in the DB.
-    Used by admin.html and index.html dropdowns.
-    No login required — just a reference list.
+    Returns JSON list of all unique aircraft_type values in the DB.
+    Used by index.html and admin.html to populate aircraft type dropdowns dynamically.
+    No login required — read-only reference data.
     """
     try:
-        rows = db.session.query(RepairLog.aircraft_type).distinct().all()
+        rows  = db.session.query(RepairLog.aircraft_type).distinct().all()
         types = sorted({
             r[0].upper().strip()
             for r in rows
