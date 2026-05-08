@@ -470,15 +470,72 @@
                             Apply ✓
                         </button>
                     </div>
-                </div>
-            </div><!-- end controls flex -->
-            </div><!-- end header bar -->
 
-            <!-- Hidden bulk status form (separate, outside delete form) -->
+                    <!-- ✈ Bulk Aircraft Type Change -->
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <select id="bulkAircraftSelect"
+                                    class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl pl-4 pr-8 p-4 font-bold tracking-wide outline-none appearance-none cursor-pointer min-w-[180px]"
+                                    onchange="document.getElementById('bulkAircraftInput').value=this.value;">
+                                <option value="">✈ Set Aircraft Type...</option>
+                                {% for at in aircraft_types %}
+                                <option value="{{ at }}">{{ at }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sky-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
+                        <input type="text"
+                               id="bulkAircraftInput"
+                               placeholder="atau taip baru..."
+                               class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl px-4 py-4 font-bold tracking-wide outline-none min-w-[130px] focus:ring-2 focus:ring-sky-300"
+                               oninput="document.getElementById('bulkAircraftSelect').value='';"
+                        />
+                        <button onclick="confirmBulkAircraft()" class="bg-sky-600 text-white px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-sky-700 transition-all whitespace-nowrap shadow-sm">
+                            Apply ✓
+                        </button>
+                    </div>
+
+                    <!-- 🗂 Manage Aircraft Types (delete wrong entries) -->
+                    <div class="relative">
+                        <button onclick="toggleAircraftManager()" id="btnManageAT"
+                                class="bg-slate-100 border border-slate-200 text-slate-600 px-5 py-5 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all whitespace-nowrap">
+                            🗂 Manage Types
+                        </button>
+                        <div id="aircraftManagerPanel"
+                             class="hidden absolute right-0 top-14 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 min-w-[240px]">
+                            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Aircraft Types in DB</p>
+                            <div id="aircraftTypeList" class="space-y-2 max-h-64 overflow-y-auto">
+                                {% for at in aircraft_types %}
+                                <div class="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2">
+                                    <span class="text-xs font-black text-slate-800 uppercase">{{ at }}</span>
+                                    <button onclick="deleteAircraftType('{{ at }}')"
+                                            class="text-rose-500 hover:text-rose-700 font-black text-xs ml-3 transition-colors"
+                                            title="Buang jenis ini dari semua rekod">
+                                        ✕ Remove
+                                    </button>
+                                </div>
+                                {% else %}
+                                <p class="text-xs text-slate-400 italic">Tiada aircraft type lagi.</p>
+                                {% endfor %}
+                            </div>
+                            <p class="text-[9px] text-slate-400 mt-3 leading-relaxed">
+                                "Remove" akan kosongkan aircraft_type pada semua rekod berkenaan (rekod tidak dipadam).
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Hidden forms — all separate to avoid nested form HTML error -->
             <form id="bulkStatusForm" action="{{ url_for('bulk_status') }}" method="POST" style="display:none;">
                 <input type="hidden" name="new_status" id="bulkStatusValue">
             </form>
-
+            <form id="bulkAircraftForm" action="/bulk_aircraft" method="POST" style="display:none;">
+                <input type="hidden" name="new_aircraft_type" id="bulkAircraftValue">
+            </form>
             <form id="bulkDeleteForm" action="{{ url_for('bulk_delete') }}" method="POST">
                 <div class="overflow-x-auto custom-scrollbar">
                     <table id="mainTable" class="w-full">
@@ -916,6 +973,67 @@
                 document.getElementById('bulkDeleteForm').submit();
             }
         }
+
+        // ✅ Bulk Aircraft Type Change
+        function confirmBulkAircraft() {
+            const val = document.getElementById('bulkAircraftInput').value.trim().toUpperCase();
+            if (!val) {
+                alert('Sila pilih atau taip jenis kapal terbang terlebih dahulu.');
+                return;
+            }
+            const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Sila pilih sekurang-kurangnya satu rekod terlebih dahulu.');
+                return;
+            }
+            if (!confirm(`Tukar aircraft type ${checkboxes.length} rekod → "${val}"?`)) return;
+
+            const form = document.getElementById('bulkAircraftForm');
+            document.getElementById('bulkAircraftValue').value = val;
+            form.querySelectorAll('input[name="ids"]').forEach(e => e.remove());
+            checkboxes.forEach(cb => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids'; inp.value = cb.value;
+                form.appendChild(inp);
+            });
+            form.submit();
+        }
+
+        // 🗂 Toggle aircraft manager panel
+        function toggleAircraftManager() {
+            const panel = document.getElementById('aircraftManagerPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        // ✕ Delete/clear an aircraft type from all records
+        async function deleteAircraftType(at) {
+            if (!confirm(`Buang aircraft type "${at}" dari semua rekod berkenaan?\nRekod tidak akan dipadam — hanya aircraft_type field akan dikosongkan.`)) return;
+            try {
+                const res = await fetch('/delete_aircraft_type', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({aircraft_type: at})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`✅ Berjaya! ${data.cleared} rekod dikosongkan aircraft type "${at}".`);
+                    location.reload();
+                } else {
+                    alert('Ralat: ' + (data.error || 'Unknown error'));
+                }
+            } catch(e) {
+                alert('Ralat rangkaian: ' + e);
+            }
+        }
+
+        // Close aircraft manager panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('aircraftManagerPanel');
+            const btn   = document.getElementById('btnManageAT');
+            if (panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        });
 
         // ✅ Bulk Status Change
         function confirmBulkStatus() {
