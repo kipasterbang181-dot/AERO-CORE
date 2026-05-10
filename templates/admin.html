@@ -451,7 +451,7 @@
                         <span id="t-btn-delete">Delete Selected 🗑️</span>
                     </button>
 
-                    <!-- Bulk Status Change -->
+                    <!-- Bulk Status Change — ROW 1 -->
                     <div class="flex items-center gap-2">
                         <select id="bulkStatusSelect" class="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-3xl pl-4 pr-8 p-4 font-bold tracking-wide outline-none appearance-none cursor-pointer min-w-[180px]">
                             <option value="">⚡ Bulk Change Status...</option>
@@ -470,62 +470,57 @@
                             Apply ✓
                         </button>
                     </div>
+                </div>
 
-                    <!-- ✈ Bulk Aircraft Type Change -->
-                    <div class="flex items-center gap-2">
-                        <div class="relative">
-                            <select id="bulkAircraftSelect"
-                                    class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl pl-4 pr-8 p-4 font-bold tracking-wide outline-none appearance-none cursor-pointer min-w-[180px]"
-                                    onchange="document.getElementById('bulkAircraftInput').value=this.value;">
-                                <option value="">✈ Set Aircraft Type...</option>
-                                {% for at in aircraft_types %}
-                                <option value="{{ at }}">{{ at }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sky-400">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
+                <!-- ✈ Bulk Aircraft Type — ROW 2 (below status) -->
+                <div class="flex items-center gap-2 mt-3 flex-wrap px-6 pb-5">
+                    <div class="relative">
+                        <select id="bulkAircraftSelect"
+                                class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl pl-4 pr-8 p-4 font-bold tracking-wide outline-none appearance-none cursor-pointer min-w-[180px]"
+                                onchange="document.getElementById('bulkAircraftInput').value=this.value;">
+                            <option value="">✈ Set Aircraft Type...</option>
+                            {% for at in aircraft_types %}
+                            <option value="{{ at }}">{{ at }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sky-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
-                        <input type="text"
-                               id="bulkAircraftInput"
-                               placeholder="atau taip baru..."
-                               class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl px-4 py-4 font-bold tracking-wide outline-none min-w-[130px] focus:ring-2 focus:ring-sky-300"
-                               oninput="document.getElementById('bulkAircraftSelect').value='';"
-                        />
-                        <button onclick="confirmBulkAircraft()" class="bg-sky-600 text-white px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-sky-700 transition-all whitespace-nowrap shadow-sm">
-                            Apply ✓
-                        </button>
                     </div>
+                    <input type="text"
+                           id="bulkAircraftInput"
+                           placeholder="atau taip baru..."
+                           class="bg-sky-50 border border-sky-200 text-sky-900 text-xs rounded-3xl px-4 py-4 font-bold tracking-wide outline-none min-w-[150px] focus:ring-2 focus:ring-sky-300"
+                           oninput="document.getElementById('bulkAircraftSelect').value='';"
+                    />
+                    <button onclick="confirmBulkAircraft()" class="bg-sky-600 text-white px-6 py-4 rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-sky-700 transition-all whitespace-nowrap shadow-sm">
+                        Apply ✓
+                    </button>
 
-                    <!-- 🗂 Manage Aircraft Types (delete wrong entries) -->
+                    <!-- 🗂 Manage Types -->
                     <div class="relative">
                         <button onclick="toggleAircraftManager()" id="btnManageAT"
-                                class="bg-slate-100 border border-slate-200 text-slate-600 px-5 py-5 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all whitespace-nowrap">
+                                class="bg-slate-100 border border-slate-200 text-slate-600 px-5 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all whitespace-nowrap">
                             🗂 Manage Types
                         </button>
                         <div id="aircraftManagerPanel"
-                             class="hidden absolute right-0 top-14 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 min-w-[240px]">
+                             class="hidden absolute left-0 top-12 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 min-w-[240px]">
                             <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Aircraft Types in DB</p>
-                            <div id="aircraftTypeList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div class="space-y-2 max-h-64 overflow-y-auto">
                                 {% for at in aircraft_types %}
                                 <div class="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2">
                                     <span class="text-xs font-black text-slate-800 uppercase">{{ at }}</span>
                                     <button onclick="deleteAircraftType('{{ at }}')"
                                             class="text-rose-500 hover:text-rose-700 font-black text-xs ml-3 transition-colors"
-                                            title="Buang jenis ini dari semua rekod">
-                                        ✕ Remove
-                                    </button>
+                                            title="Kosongkan dari semua rekod">✕ Remove</button>
                                 </div>
                                 {% else %}
                                 <p class="text-xs text-slate-400 italic">Tiada aircraft type lagi.</p>
                                 {% endfor %}
                             </div>
-                            <p class="text-[9px] text-slate-400 mt-3 leading-relaxed">
-                                "Remove" akan kosongkan aircraft_type pada semua rekod berkenaan (rekod tidak dipadam).
-                            </p>
+                            <p class="text-[9px] text-slate-400 mt-3 leading-relaxed">Remove = kosongkan aircraft_type field, rekod tidak dipadam.</p>
                         </div>
                     </div>
-
                 </div>
             </div>
 
