@@ -85,6 +85,20 @@ with app.app_context():
                 print(">>> aircraft_type column ensured.")
         except Exception as col_err:
             print(f">>> aircraft_type column note: {col_err}")
+
+        # ── AUTO-MIGRATION: TDI IN PROGRESS → TDI ON PROGRESS ──────────────
+        try:
+            with db.engine.connect() as conn:
+                r = conn.execute(db.text(
+                    "UPDATE repair_log SET status_type='TDI ON PROGRESS' "
+                    "WHERE status_type='TDI IN PROGRESS'"
+                ))
+                conn.commit()
+                if r.rowcount:
+                    print(f">>> [Migration] Fixed {r.rowcount} TDI IN PROGRESS records")
+        except Exception as _me:
+            print(f">>> [Migration] note: {_me}")
+
     except Exception as e:
         print(f">>> Ralat Sambungan Awal Database: {e}")
 
@@ -136,13 +150,13 @@ def normalize_status(status_str):
 
     # ── TDI sub-statuses  ──
     if 'TDI' in status:
-        if 'PROGRESS' in status:
-            return 'TDI IN PROGRESS'
         if 'REVIEW' in status:
             return 'TDI TO REVIEW'
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
-        return 'TDI IN PROGRESS'          # bare "TDI" defaults here
+        if 'PROGRESS' in status:
+            return 'TDI ON PROGRESS'  # covers both TDI IN and TDI ON
+        return 'TDI ON PROGRESS'          # bare "TDI" defaults here
 
     # ── Quote / Delivery  ──
     if 'READY TO QUOTE' in status or 'READY FOR QUOTE' in status:
@@ -326,7 +340,7 @@ def admin():
 
         # ── Fixed 7-status list shown in dashboard & filter ──
         status_list = [
-            "TDI IN PROGRESS",
+            "TDI ON PROGRESS",  # ✅ corrected
             "READY TO QUOTE",
             "OV TDI",
             "WARRANTY REPAIR",
@@ -501,7 +515,14 @@ def edit(id):
             logger.error(f"Edit Error ID {id}: {e}")
             flash(f"Ralat Simpan: {str(e)}", "error")
 
-    return render_template('edit.html', item=l, source=source)
+    try:
+        # Ensure aircraft_type exists (old DB rows may lack this column)
+        if not hasattr(l, 'aircraft_type') or l.aircraft_type is None:
+            l.aircraft_type = ''
+        return render_template('edit.html', item=l, source=source)
+    except Exception as e:
+        logger.error(f"Edit GET Error ID {id}: {e}\n{traceback.format_exc()}")
+        return f"<h3>Edit Error</h3><p>{e}</p><pre>{traceback.format_exc()}</pre>", 500
 
 
 @app.route('/isolate/<int:id>')
@@ -1035,6 +1056,21 @@ def bulk_status():
         logger.error(f"Bulk Status Error: {e}")
         flash("Ralat semasa kemaskini status.", "error")
     return redirect(url_for('admin'))
+
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Show real error message instead of blank 500 page."""
+    logger.error(f"500 Error: {e}\n{traceback.format_exc()}")
+    return f"""
+    <div style='font-family:monospace;padding:30px;'>
+    <h2 style='color:#dc2626'>500 Internal Server Error</h2>
+    <p style='color:#64748b'>{str(e)}</p>
+    <pre style='background:#f1f5f9;padding:20px;border-radius:8px;overflow:auto;font-size:12px'>{traceback.format_exc()}</pre>
+    <a href='/admin' style='color:#2563eb'>← Back to Admin</a>
+    </div>
+    """, 500
 
 
 if __name__ == '__main__':
