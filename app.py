@@ -86,7 +86,7 @@ with app.app_context():
         except Exception as col_err:
             print(f">>> aircraft_type column note: {col_err}")
 
-        # ── AUTO: fix TDI IN PROGRESS → TDI ON PROGRESS ─────────────────
+        # Auto-fix: rename TDI IN PROGRESS → TDI ON PROGRESS in DB
         try:
             with db.engine.connect() as conn:
                 r = conn.execute(db.text(
@@ -100,7 +100,7 @@ with app.app_context():
             print(f">>> [Fix] note: {_me}")
 
     except Exception as e:
-        print(f">>> Ralat Sambungan Awal Database: {e}")
+        print(f">>> Database startup error: {e}")
 
 # ==============================================================================
 # FUNGSI BANTUAN (HELPER FUNCTIONS)
@@ -155,8 +155,8 @@ def normalize_status(status_str):
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
         if 'PROGRESS' in status:
-            return 'TDI ON PROGRESS'  # ✅ covers both TDI IN and TDI ON PROGRESS
-        return 'TDI ON PROGRESS'          # bare TDI defaults here
+            return 'TDI ON PROGRESS'
+        return 'TDI ON PROGRESS'          # bare "TDI" defaults here
 
     # ── Quote / Delivery  ──
     if 'READY TO QUOTE' in status or 'READY FOR QUOTE' in status:
@@ -294,13 +294,13 @@ def login():
 
         if username == 'admin' and password == 'password123':
             session['admin'] = True
-            flash("Log masuk berjaya!", "success")
+            flash("Login successful!", "success")
             target = request.form.get('next_target')
             if target and target != 'None' and target != '':
                 return redirect(target)
             return redirect(url_for('admin'))
         else:
-            flash("Username atau Password salah!", "error")
+            flash("Invalid username or password!", "error")
 
     return render_template('login.html', next_page=next_page)
 
@@ -308,7 +308,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash("Anda telah log keluar.", "info")
+    flash("You have been logged out.", "info")
     return redirect(url_for('index'))
 
 
@@ -414,9 +414,9 @@ def incoming():
         db.session.commit()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
-            return jsonify({"status": "success", "message": "Data Berjaya Disimpan!"}), 200
+            return jsonify({"status": "success", "message": "Data saved successfully!"}), 200
 
-        flash("Data Berjaya Disimpan!", "success")
+        flash("Data saved successfully!", "success")
         return redirect(url_for('index'))
 
     except Exception as e:
@@ -479,7 +479,7 @@ def edit(id):
 
     l = db.session.get(RepairLog, id)
     if l is None:
-        flash(f"Rekod #{id} tidak dijumpai.", "error")
+        flash(f"Record #{id} not found.", "error")
         return redirect(url_for('admin'))
     source = request.args.get('from', request.form.get('origin_source', 'admin'))
 
@@ -506,43 +506,32 @@ def edit(id):
 
             l.last_updated = datetime.now()
             db.session.commit()
-            flash("Rekod Berjaya Dikemaskini!", "success")
+            flash("Record updated successfully!", "success")
 
             return redirect(url_for('view_tag', id=id) if source == 'view_tag' else url_for('admin'))
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"Edit Error ID {id}: {e}")
-            flash(f"Ralat Simpan: {str(e)}", "error")
+            flash(f"Save error: {str(e)}", "error")
 
     try:
-        from datetime import date as _date, datetime as _dt
-        # ── Sanitise fields that may be stored as strings in DB ──────────────
-        # aircraft_type
+        # Sanitise fields — DB may store dates as strings on older records
         if not hasattr(l, 'aircraft_type') or l.aircraft_type is None:
             l.aircraft_type = ''
-        # date_in — convert string → date object if needed
         if l.date_in and isinstance(l.date_in, str):
-            try:
-                l.date_in = _dt.strptime(l.date_in[:10], '%Y-%m-%d').date()
-            except Exception:
-                l.date_in = None
-        # date_out — convert string → date object if needed
+            try: l.date_in = datetime.strptime(l.date_in[:10], '%Y-%m-%d').date()
+            except: l.date_in = None
         if l.date_out and isinstance(l.date_out, str):
-            try:
-                l.date_out = _dt.strptime(l.date_out[:10], '%Y-%m-%d').date()
-            except Exception:
-                l.date_out = None
-        # last_updated — convert string → datetime object if needed
+            try: l.date_out = datetime.strptime(l.date_out[:10], '%Y-%m-%d').date()
+            except: l.date_out = None
         if l.last_updated and isinstance(l.last_updated, str):
-            try:
-                l.last_updated = _dt.strptime(l.last_updated[:19], '%Y-%m-%d %H:%M:%S')
-            except Exception:
-                l.last_updated = None
+            try: l.last_updated = datetime.strptime(l.last_updated[:19], '%Y-%m-%d %H:%M:%S')
+            except: l.last_updated = None
         return render_template('edit.html', item=l, source=source)
     except Exception as e:
-        logger.error(f"Edit GET Error ID {id}: {e}\n{traceback.format_exc()}")
-        return f"<h3>Edit Error — {e}</h3><pre>{traceback.format_exc()}</pre><a href='/admin'>← Admin</a>", 500
+        logger.error(f"Edit GET error ID {id}: {e}\n{traceback.format_exc()}")
+        return f"<h3>Edit Error</h3><p>{e}</p><pre>{traceback.format_exc()}</pre><a href='/admin'>← Admin</a>", 500
 
 
 @app.route('/isolate/<int:id>')
@@ -553,16 +542,16 @@ def isolate_log(id):
     try:
         l = db.session.get(RepairLog, id)
         if l is None:
-            flash("Rekod tidak dijumpai.", "error")
+            flash("Record not found.", "error")
             return redirect(url_for('admin'))
         l.status_type  = 'ISOLATED'
         l.date_out     = None
         l.last_updated = datetime.now()
         db.session.commit()
-        flash("Rekod telah di-isolate.", "success")
+        flash("Record has been isolated.", "success")
     except Exception as e:
         db.session.rollback()
-        flash("Gagal isolate rekod.", "error")
+        flash("Failed to isolate record.", "error")
     return redirect(url_for('admin'))
 
 
@@ -574,14 +563,14 @@ def delete_log(id):
     try:
         l = db.session.get(RepairLog, id)
         if l is None:
-            flash("Rekod tidak dijumpai.", "error")
+            flash("Record not found.", "error")
             return redirect(url_for('admin'))
         db.session.delete(l)
         db.session.commit()
-        flash("Rekod dipadam.", "success")
+        flash("Record deleted.", "success")
     except Exception as e:
         db.session.rollback()
-        flash("Gagal memadam rekod.", "error")
+        flash("Failed to delete record.", "error")
     return redirect(url_for('admin'))
 
 
@@ -597,13 +586,13 @@ def bulk_delete():
             ids_int = [int(i) for i in selected_ids]
             RepairLog.query.filter(RepairLog.id.in_(ids_int)).delete(synchronize_session=False)
             db.session.commit()
-            flash(f"{len(ids_int)} rekod berjaya dipadam secara pukal.", "success")
+            flash(f"{len(ids_int)} record(s) deleted successfully.", "success")
         except Exception as e:
             db.session.rollback()
             logger.error(f"Bulk Delete Error: {e}")
-            flash("Ralat semasa memadam rekod.", "error")
+            flash("Error deleting records.", "error")
     else:
-        flash("Tiada rekod dipilih untuk dipadam.", "warning")
+        flash("No records selected for deletion.", "warning")
     return redirect(url_for('admin'))
 
 
@@ -624,7 +613,7 @@ def view_report(id):
         return redirect(url_for('login', next=request.path))
     l = db.session.get(RepairLog, id)
     if l is None:
-        flash("Rekod tidak dijumpai.", "error")
+        flash("Record not found.", "error")
         return redirect(url_for('admin'))
     return render_template('view_report.html', l=l)
 
@@ -633,7 +622,7 @@ def view_report(id):
 def view_tag(id):
     l = db.session.get(RepairLog, id)
     if l is None:
-        flash("Rekod tidak dijumpai.", "error")
+        flash("Record not found.", "error")
         return redirect(url_for('admin'))
     count = RepairLog.query.filter_by(sn=l.sn).count()
     return render_template('view_tag.html', l=l, logs_count=count)
@@ -647,7 +636,7 @@ def view_tag(id):
 def download_qr(id):
     l = db.session.get(RepairLog, id)
     if l is None:
-        flash("Rekod tidak dijumpai.", "error")
+        flash("Record not found.", "error")
         return redirect(url_for('admin'))
     qr_url = f"{request.url_root}view_tag/{l.id}"
     qr     = qrcode.make(qr_url)
@@ -986,7 +975,7 @@ def normalize_existing_statuses():
         flash(report, "success")
     except Exception as e:
         db.session.rollback()
-        flash("Gagal normalisasi.", "error")
+        flash("Normalization failed.", "error")
     return redirect(url_for('admin'))
 
 
@@ -1060,7 +1049,7 @@ def bulk_status():
     selected_ids = request.form.getlist('ids')
     new_status   = request.form.get('new_status', '').strip()
     if not selected_ids or not new_status:
-        flash("Sila pilih rekod dan status baru.", "warning")
+        flash("Please select records and a new status.", "warning")
         return redirect(url_for('admin'))
     try:
         ids_int   = [int(i) for i in selected_ids]
@@ -1070,19 +1059,96 @@ def bulk_status():
             l.status_type  = norm
             l.last_updated = datetime.now()
         db.session.commit()
-        flash(f"✅ {len(to_update)} rekod dikemaskini kepada '{norm}'.", "success")
+        flash(f"✅ {len(to_update)} record(s) updated to '{norm}'.", "success")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Bulk Status Error: {e}")
-        flash("Ralat semasa kemaskini status.", "error")
+        flash("Error updating status.", "error")
     return redirect(url_for('admin'))
 
 
 
+# ==============================================================================
+# BULK AIRCRAFT TYPE CHANGE
+# ==============================================================================
+@app.route('/bulk_aircraft', methods=['POST'])
+def bulk_aircraft():
+    if not session.get('admin'):
+        return redirect(url_for('login', next=request.path))
+
+    selected_ids      = request.form.getlist('ids')
+    new_aircraft_type = request.form.get('new_aircraft_type', '').strip().upper()
+
+    if not selected_ids:
+        flash("No records selected.", "warning")
+        return redirect(url_for('admin'))
+    if not new_aircraft_type:
+        flash("Please enter an aircraft type.", "warning")
+        return redirect(url_for('admin'))
+    try:
+        ids_int   = [int(i) for i in selected_ids]
+        to_update = RepairLog.query.filter(RepairLog.id.in_(ids_int)).all()
+        for l in to_update:
+            l.aircraft_type = new_aircraft_type
+            l.last_updated  = datetime.now()
+        db.session.commit()
+        flash(f"✅ {len(to_update)} record(s) updated to aircraft type '{new_aircraft_type}'.", "success")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Bulk Aircraft Error: {e}")
+        flash("Error updating aircraft type.", "error")
+    return redirect(url_for('admin'))
+
+
+# ==============================================================================
+# API — GET UNIQUE AIRCRAFT TYPES (for dropdowns)
+# ==============================================================================
+@app.route('/api/aircraft_types')
+def get_aircraft_types():
+    try:
+        rows  = db.session.query(RepairLog.aircraft_type).distinct().all()
+        types = sorted({r[0].upper().strip() for r in rows if r[0] and r[0].strip()})
+        return jsonify({"status": "ok", "aircraft_types": types}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "aircraft_types": []}), 500
+
+
+# ==============================================================================
+# CLEAR AN AIRCRAFT TYPE from all records
+# ==============================================================================
+@app.route('/delete_aircraft_type', methods=['POST'])
+def delete_aircraft_type():
+    if not session.get('admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        at = request.json.get('aircraft_type', '').strip().upper()
+        if not at:
+            return jsonify({"error": "No aircraft_type provided"}), 400
+        rows = RepairLog.query.filter(
+            db.func.upper(RepairLog.aircraft_type) == at
+        ).all()
+        count = len(rows)
+        for l in rows:
+            l.aircraft_type = ''
+            l.last_updated  = datetime.now()
+        db.session.commit()
+        return jsonify({"status": "success", "cleared": count}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# ==============================================================================
+# 500 ERROR HANDLER — shows real error instead of blank page
+# ==============================================================================
 @app.errorhandler(500)
 def internal_error(e):
     logger.error(f"500: {e}\n{traceback.format_exc()}")
-    return f"<div style='font-family:monospace;padding:30px'><h2 style='color:#dc2626'>500 Error</h2><p>{e}</p><pre style='background:#f1f5f9;padding:16px;overflow:auto'>{traceback.format_exc()}</pre><a href='/admin'>← Admin</a></div>", 500
+    return f"""<div style='font-family:monospace;padding:30px'>
+    <h2 style='color:#dc2626'>500 Internal Server Error</h2>
+    <p>{e}</p>
+    <pre style='background:#f1f5f9;padding:16px;overflow:auto'>{traceback.format_exc()}</pre>
+    <a href='/admin'>← Back to Admin</a></div>""", 500
 
 
 if __name__ == '__main__':
