@@ -86,7 +86,7 @@ with app.app_context():
         except Exception as col_err:
             print(f">>> aircraft_type column note: {col_err}")
 
-        # ── AUTO-MIGRATION: TDI IN PROGRESS → TDI ON PROGRESS ──────────────
+        # ── AUTO: fix TDI IN PROGRESS → TDI ON PROGRESS ─────────────────
         try:
             with db.engine.connect() as conn:
                 r = conn.execute(db.text(
@@ -95,9 +95,9 @@ with app.app_context():
                 ))
                 conn.commit()
                 if r.rowcount:
-                    print(f">>> [Migration] Fixed {r.rowcount} TDI IN PROGRESS records")
+                    print(f">>> [Fix] {r.rowcount} records: TDI IN PROGRESS → TDI ON PROGRESS")
         except Exception as _me:
-            print(f">>> [Migration] note: {_me}")
+            print(f">>> [Fix] note: {_me}")
 
     except Exception as e:
         print(f">>> Ralat Sambungan Awal Database: {e}")
@@ -155,8 +155,8 @@ def normalize_status(status_str):
         if 'READY' in status and 'QUOTE' in status:
             return 'TDI READY TO QUOTE'
         if 'PROGRESS' in status:
-            return 'TDI ON PROGRESS'  # covers both TDI IN and TDI ON
-        return 'TDI ON PROGRESS'          # bare "TDI" defaults here
+            return 'TDI ON PROGRESS'  # ✅ covers both TDI IN and TDI ON PROGRESS
+        return 'TDI ON PROGRESS'          # bare TDI defaults here
 
     # ── Quote / Delivery  ──
     if 'READY TO QUOTE' in status or 'READY FOR QUOTE' in status:
@@ -340,7 +340,7 @@ def admin():
 
         # ── Fixed 7-status list shown in dashboard & filter ──
         status_list = [
-            "TDI ON PROGRESS",  # ✅ corrected
+            "TDI ON PROGRESS",
             "READY TO QUOTE",
             "OV TDI",
             "WARRANTY REPAIR",
@@ -516,13 +516,33 @@ def edit(id):
             flash(f"Ralat Simpan: {str(e)}", "error")
 
     try:
-        # Ensure aircraft_type exists (old DB rows may lack this column)
+        from datetime import date as _date, datetime as _dt
+        # ── Sanitise fields that may be stored as strings in DB ──────────────
+        # aircraft_type
         if not hasattr(l, 'aircraft_type') or l.aircraft_type is None:
             l.aircraft_type = ''
+        # date_in — convert string → date object if needed
+        if l.date_in and isinstance(l.date_in, str):
+            try:
+                l.date_in = _dt.strptime(l.date_in[:10], '%Y-%m-%d').date()
+            except Exception:
+                l.date_in = None
+        # date_out — convert string → date object if needed
+        if l.date_out and isinstance(l.date_out, str):
+            try:
+                l.date_out = _dt.strptime(l.date_out[:10], '%Y-%m-%d').date()
+            except Exception:
+                l.date_out = None
+        # last_updated — convert string → datetime object if needed
+        if l.last_updated and isinstance(l.last_updated, str):
+            try:
+                l.last_updated = _dt.strptime(l.last_updated[:19], '%Y-%m-%d %H:%M:%S')
+            except Exception:
+                l.last_updated = None
         return render_template('edit.html', item=l, source=source)
     except Exception as e:
         logger.error(f"Edit GET Error ID {id}: {e}\n{traceback.format_exc()}")
-        return f"<h3>Edit Error</h3><p>{e}</p><pre>{traceback.format_exc()}</pre>", 500
+        return f"<h3>Edit Error — {e}</h3><pre>{traceback.format_exc()}</pre><a href='/admin'>← Admin</a>", 500
 
 
 @app.route('/isolate/<int:id>')
@@ -1061,16 +1081,8 @@ def bulk_status():
 
 @app.errorhandler(500)
 def internal_error(e):
-    """Show real error message instead of blank 500 page."""
-    logger.error(f"500 Error: {e}\n{traceback.format_exc()}")
-    return f"""
-    <div style='font-family:monospace;padding:30px;'>
-    <h2 style='color:#dc2626'>500 Internal Server Error</h2>
-    <p style='color:#64748b'>{str(e)}</p>
-    <pre style='background:#f1f5f9;padding:20px;border-radius:8px;overflow:auto;font-size:12px'>{traceback.format_exc()}</pre>
-    <a href='/admin' style='color:#2563eb'>← Back to Admin</a>
-    </div>
-    """, 500
+    logger.error(f"500: {e}\n{traceback.format_exc()}")
+    return f"<div style='font-family:monospace;padding:30px'><h2 style='color:#dc2626'>500 Error</h2><p>{e}</p><pre style='background:#f1f5f9;padding:16px;overflow:auto'>{traceback.format_exc()}</pre><a href='/admin'>← Admin</a></div>", 500
 
 
 if __name__ == '__main__':

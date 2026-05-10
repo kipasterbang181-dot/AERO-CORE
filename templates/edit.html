@@ -272,7 +272,7 @@
                     <input type="date" 
                            name="date_in" 
                            id="date_in"
-                           value="{{ item.date_in.strftime('%Y-%m-%d') if item.date_in else '' }}" 
+                           value="{{ item.date_in.strftime('%Y-%m-%d') if item.date_in and item.date_in.__class__.__name__ != 'str' else (item.date_in[:10] if item.date_in else '') }}" 
                            class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-600 focus:bg-white outline-none transition-all cursor-pointer"
                            onchange="validateDateLogic()">
                 </div>
@@ -284,7 +284,7 @@
                     <input type="date" 
                            name="date_out" 
                            id="date_out"
-                           value="{{ item.date_out.strftime('%Y-%m-%d') if item.date_out else '' }}" 
+                           value="{{ item.date_out.strftime('%Y-%m-%d') if item.date_out and item.date_out.__class__.__name__ != 'str' else (item.date_out[:10] if item.date_out else '') }}" 
                            class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-rose-600 focus:bg-white outline-none transition-all cursor-pointer"
                            onchange="validateDateLogic()">
                 </div>
@@ -396,7 +396,7 @@
 
             <div class="text-center mt-4">
                  <p class="text-[8px] text-slate-300 font-mono">
-                    System Ver 2.5 | Last Sync: {{ item.last_updated.strftime('%Y-%m-%d %H:%M') if item.last_updated else 'N/A' }}
+                    System Ver 2.5 | Last Sync: {{ item.last_updated.strftime('%Y-%m-%d %H:%M') if item.last_updated and item.last_updated.__class__.__name__ != 'str' else (item.last_updated[:16] if item.last_updated else 'N/A') }}
                  </p>
             </div>
         </form>
