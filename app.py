@@ -609,8 +609,7 @@ def history(sn):
 
 @app.route('/view_report/<int:id>')
 def view_report(id):
-    if not session.get('admin'):
-        return redirect(url_for('login', next=request.path))
+    # ✅ No login required — accessible via QR scan
     l = db.session.get(RepairLog, id)
     if l is None:
         flash("Record not found.", "error")
@@ -994,7 +993,8 @@ def public_dashboard():
         outstanding = sc_map.get('TDI ON PROGRESS', 0) + sc_map.get('OV TDI', 0)
         warranty    = sc_map.get('WARRANTY REPAIR', 0)
         ov_count    = sc_map.get('OV REPAIR', 0) + sc_map.get('OV TDI', 0)
-        rtu         = sc_map.get('RETURN TO AEROTREE', 0) + sc_map.get('RETURN TO PUTD', 0) + sc_map.get('RETURN UNSERVICEABLE', 0)
+        # RTU = Ready To Use — unit siap & sedia digunakan/dihantar
+        rtu         = sc_map.get('READY TO DELIVERED', 0) + sc_map.get('READY TO DELIVERED WARRANTY', 0) + sc_map.get('SERVICEABLE', 0)
         rtq         = sc_map.get('READY TO QUOTE', 0) + sc_map.get('QUOTE SUBMITTED', 0)
 
         # Safe aircraft_type access — handles missing column gracefully
